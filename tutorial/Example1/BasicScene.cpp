@@ -1,4 +1,4 @@
-#include "BasicScene.h"
+#include "./BasicScene.h"
 #include <read_triangle_mesh.h>
 #include <utility>
 #include "ObjLoader.h"
