@@ -180,10 +180,13 @@ bool BasicScene::collapseTenPerEdges(float ratio)
         const int max_iter = std::ceil(ratio * Q.size());
         for (int j = 0; j < max_iter; j++)
         {
+            double cost = std::get<0>(Q.top());
+            int edgeToCollpase = std::get<1>(Q.top());
             if (!igl::collapse_edge(igl::shortest_edge_and_midpoint, V, F, E, EMAP, EF, EI, Q, EQ, C))
             {
                 break;
             }
+            std::cout << "edge " << edgeToCollpase << ", cost = " << cost << ", new v position(" << C.row(edgeToCollpase) << ")" <<std::endl;
             something_collapsed = true;
             num_collapsed++;
         }
