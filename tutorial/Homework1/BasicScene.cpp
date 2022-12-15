@@ -5,6 +5,7 @@
 #include "igl/parallel_for.h"
 #include "igl/shortest_edge_and_midpoint.h"
 #include "igl/collapse_edge.h"
+#include "IglMeshLoader.h"
 
 
 using namespace cg3d;
