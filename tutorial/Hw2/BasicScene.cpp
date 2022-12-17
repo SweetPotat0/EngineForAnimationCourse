@@ -106,7 +106,7 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     background->Scale(120, Axis::XYZ);
     background->SetPickable(false);
     background->SetStatic();
-    camera->Translate(1, Axis::Z);
+    camera->Translate(10, Axis::Z);
 
     auto program = std::make_shared<Program>("shaders/basicShader");
     auto material{std::make_shared<Material>("material", program)}; // empty material
@@ -154,9 +154,8 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
 
     collapseTenPerEdges(0.8f, autoCyl1);
 
-    autoCyl1->Translate({-0.3, -0.2, 0});
-    autoCyl1->Scale(1.0f);
-    // autoCyl1->showWireframe = true;
+    autoCyl1->Translate({-3, -0.2, 0});
+    autoCyl1->Scale(8.0f);
     root->AddChild(autoCyl1);
 
     auto v1 = GetLastMesh(autoCyl1).vertices;
@@ -200,14 +199,8 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
 
     collapseTenPerEdges(0.8f, autoCyl2);
 
-    // cube1 = Model::Create("cube1", Mesh::Cube(), material);
-    // cube2 = Model::Create("cube2", Mesh::Cube(), material);
-    // root->AddChildren({cube1});
-    // autoCyl1->AddChildren({cube1});
-
-    autoCyl2->Translate({0.3, -0.2, 0});
-    autoCyl2->Scale(1.0f);
-    // autoCyl2->showWireframe = true;
+    autoCyl2->Translate({3, -0.2, 0});
+    autoCyl2->Scale(8.0f);
     root->AddChild(autoCyl2);
 
     meshDataIndex = autoCyl2->GetMeshList()[0]->data.size() - 1;
@@ -269,9 +262,9 @@ void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, con
     program.SetUniform4f("Kai", 1.0f, 1.0f, 1.0f, 1.0f);
     if (!pause)
     {
-        OBB* collidingOBB = getCollidingOBB(&treeCyl1, &treeCyl2, autoCyl1->Tout, autoCyl2->Tout);
+        OBB* collidingOBB = getCollidingOBB(&treeCyl1, &treeCyl2, autoCyl1, autoCyl2);
         if (collidingOBB == NULL){
-            autoCyl2->Translate({-0.002, 0, 0});
+            autoCyl2->Translate({-0.05, 0, 0});
         }
         else{
             showOBB(collidingOBB);
@@ -314,12 +307,15 @@ bool isCollision(const OBB& box1, const OBB&box2)
         getSeparatingPlane(RPos, box1.AxisZ.cross(box2.AxisZ), box1, box2));
 }
 
-OBB getOBBfromAABB(Eigen::AlignedBox3d box, Eigen::Affine3f tout){
+OBB getOBBfromAABB(Eigen::AlignedBox3d box, std::shared_ptr<cg3d::AutoMorphingModel> model){
     OBB obb;
-    obb.Pos = tout.rotation() * box.center().cast <float> ();
-    obb.Pos =  obb.Pos + tout.translation();
-    obb.Half_size = box.sizes().cast<float>() / 2.0;
-    auto a = tout.rotation();
+    Eigen::Vector3f c =  box.center().cast <float> ();
+    Eigen::Vector4f tc = model->GetTransform() * Eigen::Vector4f{c[0],c[1],c[2],1};
+    obb.Pos = {tc[0], tc[1], tc[2]};
+    obb.Half_size = box.sizes().cast<float>() / 2.0 ;
+    auto b = model->GetScaling(model->GetTransform());
+    obb.Half_size = b * obb.Half_size;
+    auto a = model->GetRotation();
     obb.AxisX = a.col(0);
     obb.AxisY = a.col(1);
     obb.AxisZ = a.col(2);
@@ -330,29 +326,29 @@ void showOBB(OBB* box){
     std::cout<< "should show box with center" << box->Pos.transpose() << std::endl;
 }
 
-OBB* getCollidingOBB(igl::AABB<Eigen::MatrixXd,3> *tree1,igl::AABB<Eigen::MatrixXd,3> *tree2, Eigen::Affine3f tout1, Eigen::Affine3f tout2){
-    OBB obb1 = getOBBfromAABB(tree1->m_box, tout1);
-    OBB obb2 = getOBBfromAABB(tree2->m_box, tout2);
+OBB* getCollidingOBB(igl::AABB<Eigen::MatrixXd,3> *tree1,igl::AABB<Eigen::MatrixXd,3> *tree2, std::shared_ptr<cg3d::AutoMorphingModel> model1 , std::shared_ptr<cg3d::AutoMorphingModel> model2){
+    OBB obb1 = getOBBfromAABB(tree1->m_box, model1);
+    OBB obb2 = getOBBfromAABB(tree2->m_box, model2);
 
     if (isCollision(obb1, obb2))
     {
         if (tree1->is_leaf() && tree2->is_leaf())
             return new OBB(obb1); 
         else if (tree1->is_leaf()){
-            OBB* a1 = getCollidingOBB(tree1, tree2->m_left, tout1, tout2);
-            OBB* a2 = getCollidingOBB(tree1, tree2->m_right, tout1, tout2);
+            OBB* a1 = getCollidingOBB(tree1, tree2->m_left, model1, model2);
+            OBB* a2 = getCollidingOBB(tree1, tree2->m_right, model1, model2);
             return (a1 != NULL) ? a1:a2;
         }
         else if (tree2->is_leaf()){
-            OBB* a1 = getCollidingOBB(tree1->m_left, tree2, tout1, tout2);
-            OBB* a2 = getCollidingOBB(tree1->m_right, tree2, tout1, tout2);
+            OBB* a1 = getCollidingOBB(tree1->m_left, tree2, model1, model2);
+            OBB* a2 = getCollidingOBB(tree1->m_right, tree2, model1, model2);
             return (a1 != NULL) ? a1:a2; 
         }
         else{
-            OBB* a1 = getCollidingOBB(tree1->m_left, tree2->m_left, tout1, tout2);
-            OBB* a2 = getCollidingOBB(tree1->m_left, tree2->m_right, tout1, tout2);
-            OBB* a3 = getCollidingOBB(tree1->m_right, tree2->m_left, tout1, tout2);
-            OBB* a4 = getCollidingOBB(tree1->m_right, tree2->m_right, tout1, tout2);
+            OBB* a1 = getCollidingOBB(tree1->m_left, tree2->m_left, model1, model2);
+            OBB* a2 = getCollidingOBB(tree1->m_left, tree2->m_right, model1, model2);
+            OBB* a3 = getCollidingOBB(tree1->m_right, tree2->m_left, model1, model2);
+            OBB* a4 = getCollidingOBB(tree1->m_right, tree2->m_right, model1, model2);
             return (a1 != NULL) ? a1:
                     (a2 != NULL)? a2:
                     (a3 != NULL)? a3:

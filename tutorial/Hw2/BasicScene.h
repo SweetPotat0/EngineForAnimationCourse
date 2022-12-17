@@ -31,9 +31,9 @@ bool getSeparatingPlane(const Eigen::Vector3f& RPos, const Eigen::Vector3f& Plan
 
 bool isCollision(const OBB& box1, const OBB&box2);
 
-OBB getOBBfromAABB(Eigen::AlignedBox3d box, Eigen::Affine3f tout);
+OBB getOBBfromAABB(Eigen::AlignedBox3d box, std::shared_ptr<cg3d::AutoMorphingModel> model);
 
-OBB* getCollidingOBB(igl::AABB<Eigen::MatrixXd,3> *tree1,igl::AABB<Eigen::MatrixXd,3> *tree2, Eigen::Affine3f tout1, Eigen::Affine3f tout2);
+OBB* getCollidingOBB(igl::AABB<Eigen::MatrixXd,3> *tree1,igl::AABB<Eigen::MatrixXd,3> *tree2, std::shared_ptr<cg3d::AutoMorphingModel> model1, std::shared_ptr<cg3d::AutoMorphingModel> model2);
 
 void showOBB(OBB* box);
 
