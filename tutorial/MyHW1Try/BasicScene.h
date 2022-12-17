@@ -14,7 +14,8 @@ public:
     void KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, int scancode, int action, int mods) override;
 
 private:
-    bool collapseTenPerEdges(float ratio);
+    bool collapseTenPerEdges(float ratio, std::shared_ptr<cg3d::AutoMorphingModel> cyl);
     std::shared_ptr<Movable> root;
-    std::shared_ptr<cg3d::Model> cyl;
+    std::shared_ptr<cg3d::Model> cyl1;
+    std::shared_ptr<cg3d::Model> cyl2;
 };
