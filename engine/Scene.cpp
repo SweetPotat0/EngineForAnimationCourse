@@ -39,6 +39,7 @@ void Scene::MouseCallback(Viewport* viewport, int x, int y, int button, int acti
         auto modelAndDepth = visitor.PickAtPos(x, renderer->GetWindowHeight() - y);
         renderer->RenderViewportAtPos(x, y); // draw again to avoid flickering
         pickedModel = modelAndDepth.first ? std::dynamic_pointer_cast<Model>(modelAndDepth.first->shared_from_this()) : nullptr;
+        pickedModel = pickedModel->modelOnPick != nullptr ? pickedModel->modelOnPick : pickedModel;
         pickedModelDepth = modelAndDepth.second;
         camera->GetRotation().transpose();
         xAtPress = x;

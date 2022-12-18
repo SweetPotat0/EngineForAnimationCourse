@@ -234,10 +234,10 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
             glfwSetWindowShouldClose(window, GLFW_TRUE);
             break;
         case GLFW_KEY_UP:
-            // if (meshDataIndex != cyl->GetMeshList()[0]->data.size())
-            // {
-            //     meshDataIndex++;
-            // }
+            if (meshDataIndex != autoCyl2->GetMeshList()[0]->data.size())
+            {
+                meshDataIndex++;
+            }
             // camera->RotateInSystem(system, 0.1f, Axis::X);
             break;
         case GLFW_KEY_DOWN:
@@ -347,11 +347,7 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
         }
     }
 
-    collapseTenPerEdges(0.8f, autoCyl1);
-
-    autoCyl1->Translate({-3, -0.2, 0});
-    autoCyl1->Scale(8.0f);
-    root->AddChild(autoCyl1);
+    collapseTenPerEdges(10.0f, autoCyl1);
 
     auto v1 = GetLastMesh(autoCyl1).vertices;
     auto f1 = GetLastMesh(autoCyl1).faces;
@@ -393,11 +389,7 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
         }
     }
 
-    collapseTenPerEdges(0.8f, autoCyl2);
-
-    autoCyl2->Translate({3, -0.2, 0});
-    autoCyl2->Scale(8.0f);
-    root->AddChild(autoCyl2);
+    collapseTenPerEdges(3.0f, autoCyl2);
 
     meshDataIndex = autoCyl2->GetMeshList()[0]->data.size() - 1;
 
@@ -417,17 +409,31 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     cyl1WrappingCube->showFaces = false;
 
     cyl1WrappingCube->showWireframe = true;
-    root->AddChild(cyl1WrappingCube);
+    // cyl1WrappingCube->aggregatedTransform = std::move(autoCyl1->aggregatedTransform);
+    cyl1WrappingCube->isPickable = false;
 
+    root->AddChild(autoCyl1);
+    autoCyl1->Translate({-3, -0.2, 0});
+    autoCyl1->Scale(8.0f);
+    autoCyl1->AddChild(cyl1WrappingCube);
+    cyl1WrappingCube->modelOnPick = autoCyl1;
+    cyl1WrappingCube->aggregatedTransform = autoCyl1->aggregatedTransform;
     cg3d::MeshData meshData2 = GetMeshDataFromOBB(&obb2);
 
-    auto customMesh2 = cg3d::Mesh("mycustomcube", std::vector<cg3d::MeshData>{meshData2});
+    auto customMesh2 = cg3d::Mesh("mycustomcube2", std::vector<cg3d::MeshData>{meshData2});
     cyl2WrappingCube = cg3d::Model::Create("cyl2WrappingCube", std::make_shared<Mesh>(customMesh2), material);
 
     cyl2WrappingCube->showFaces = false;
-
     cyl2WrappingCube->showWireframe = true;
-    root->AddChild(cyl2WrappingCube);
+    
+    cyl2WrappingCube->isPickable = false;
+    // cyl2WrappingCube->aggregatedTransform = std::move(autoCyl2->aggregatedTransform);
+    root->AddChild(autoCyl2);
+    autoCyl2->Translate({3, -0.2, 0});
+    autoCyl2->Scale(8.0f);
+    autoCyl2->AddChild(cyl2WrappingCube);
+    cyl2WrappingCube->modelOnPick = autoCyl2;
+    cyl2WrappingCube->aggregatedTransform = autoCyl2->aggregatedTransform;
 }
 
 /**
@@ -483,7 +489,7 @@ void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, con
         OBB *collidingOBB = getCollidingOBB(&treeCyl1, &treeCyl2, autoCyl1, autoCyl2);
         if (collidingOBB == NULL)
         {
-            cyl2WrappingCube->Translate({-0.05, 0, 0});
+            // cyl2WrappingCube->Translate({-0.05, 0, 0});
             autoCyl2->Translate({-0.05, 0, 0});
         }
         else
@@ -551,15 +557,25 @@ void BasicScene::showOBB(OBB *box)
     auto program = std::make_shared<Program>("shaders/basicShader");
     auto material{std::make_shared<Material>("material", program)};
 
-    cg3d::MeshData meshData2 = GetMeshDataFromOBB(box);
+    cg3d::MeshData meshData1 = GetMeshDataFromOBB(box);
 
-    auto meshShowObb = cg3d::Mesh("showobb", std::vector<cg3d::MeshData>{meshData2});
+    auto meshShowObb = cg3d::Mesh("showobb", std::vector<cg3d::MeshData>{meshData1});
     auto showObbCube = cg3d::Model::Create("showObbCube", std::make_shared<Mesh>(meshShowObb), material);
 
     showObbCube->showFaces = false;
 
     showObbCube->showWireframe = true;
     root->AddChild(showObbCube);
+
+    cg3d::MeshData meshData2 = GetMeshDataFromOBB((box + 1));
+
+    auto meshShowObb2 = cg3d::Mesh("showobb2", std::vector<cg3d::MeshData>{meshData2});
+    auto showObbCube2 = cg3d::Model::Create("showObbCube2", std::make_shared<Mesh>(meshShowObb2), material);
+
+    showObbCube2->showFaces = false;
+
+    showObbCube2->showWireframe = true;
+    root->AddChild(showObbCube2);
 }
 
 OBB *getCollidingOBB(igl::AABB<Eigen::MatrixXd, 3> *tree1, igl::AABB<Eigen::MatrixXd, 3> *tree2, std::shared_ptr<cg3d::AutoMorphingModel> model1, std::shared_ptr<cg3d::AutoMorphingModel> model2)
@@ -569,8 +585,12 @@ OBB *getCollidingOBB(igl::AABB<Eigen::MatrixXd, 3> *tree1, igl::AABB<Eigen::Matr
 
     if (isCollision(obb1, obb2))
     {
-        if (tree1->is_leaf() && tree2->is_leaf())
-            return new OBB(obb1);
+        if (tree1->is_leaf() && tree2->is_leaf()){
+            OBB* arr = (OBB*)malloc(sizeof(OBB)*2);
+            arr[0] = OBB(obb1);
+            arr[1] = OBB(obb2);
+            return arr;
+        }
         else if (tree1->is_leaf())
         {
             OBB *a1 = getCollidingOBB(tree1, tree2->m_left, model1, model2);
@@ -588,7 +608,7 @@ OBB *getCollidingOBB(igl::AABB<Eigen::MatrixXd, 3> *tree1, igl::AABB<Eigen::Matr
             OBB *a1 = getCollidingOBB(tree1->m_left, tree2->m_left, model1, model2);
             OBB *a2 = getCollidingOBB(tree1->m_left, tree2->m_right, model1, model2);
             OBB *a3 = getCollidingOBB(tree1->m_right, tree2->m_left, model1, model2);
-            OBB *a4 = getCollidingOBB(tree1->m_right, tree2->m_right, model1, model2);
+            OBB *a4 = getCollidingOBB(tree1->m_right, tree2->m_right, model1, model2);            
             return (a1 != NULL) ? a1 : (a2 != NULL) ? a2
                                    : (a3 != NULL)   ? a3
                                                     : a4;
