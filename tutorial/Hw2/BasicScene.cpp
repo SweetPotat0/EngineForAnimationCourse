@@ -18,202 +18,13 @@
 
 using namespace cg3d;
 
-enum xDirection
-{
-    Left,
-    Right
-};
-
-enum yDirection
-{
-    Up,
-    Down
-};
-
-enum zDirection
-{
-    Front,
-    Back
-};
-
-Eigen::Vector3d GetPointByDirections(OBB *box, xDirection xdir, yDirection ydir, zDirection zdir)
-{
-    Eigen::Vector3f result = box->Pos;
-    if (xdir == xDirection::Right)
-    {
-        result += box->AxisX * box->Half_size.x();
-    }
-    else
-    {
-        result -= box->AxisX * box->Half_size.x();
-    }
-
-    if (ydir == yDirection::Up)
-    {
-        result += box->AxisY * box->Half_size.y();
-    }
-    else
-    {
-        result -= box->AxisY * box->Half_size.y();
-    }
-
-    if (zdir == zDirection::Front)
-    {
-        result += box->AxisZ * box->Half_size.z();
-    }
-    else
-    {
-        result -= box->AxisZ * box->Half_size.z();
-    }
-
-    return {(float)result.x(), (float)result.y(), (float)result.z()};
-}
-
-cg3d::MeshData GetMeshDataFromOBB(OBB *box)
-{
-    //         static auto data = std::istringstream(R"(
-    // # This file uses centimeters as units for non-parametric coordinates.
-    // v -0.500000 -0.500000 0.500000 LDF
-    // v 0.500000 -0.500000 0.500000  RDF
-    // v -0.500000 0.500000 0.500000  LUF
-    // v 0.500000 0.500000 0.500000   RUF
-    // v -0.500000 0.500000 -0.500000 LUB
-    // v 0.500000 0.500000 -0.500000  RUB
-    // v -0.500000 -0.500000 -0.500000 LDB
-    // v 0.500000 -0.500000 -0.500000  RDB
-    // vt 0.0 0.0
-    // vt 0.0 1.0
-    // vt 1.0 0.0
-    // vt 1.0 1.0
-    // f 1/1 2/2 3/3
-    // f 3/3 2/2 4/4
-    // f 3/1 4/2 5/3
-    // f 5/3 4/2 6/4
-    // f 5/1 6/2 7/3
-    // f 7/3 6/2 8/4
-    // f 7/1 8/2 1/3
-    // f 1/3 8/2 2/4
-    // f 2/1 8/2 4/3
-    // f 4/3 8/2 6/4
-    // f 7/1 1/2 5/3
-    // f 5/3 1/2 3/4
-    //         )");
-
-    // static const auto MESH = ObjLoader::MeshFromObj("Cube", data);
-
-    // return MESH;
-
-    Eigen::MatrixXd retV(8, 3);
-    Eigen::MatrixXi retF(12, 3);
-
-    // LDF 0
-    // RDF 1
-    // LUF 2
-    // RUF 3
-    // LUB 4
-    // RUB 5
-    // LDB 6
-    // RDB 7
-
-    retV(0, 0) = GetPointByDirections(box, xDirection::Left, yDirection::Down, zDirection::Front).x();
-    retV(0, 1) = GetPointByDirections(box, xDirection::Left, yDirection::Down, zDirection::Front).y();
-    retV(0, 2) = GetPointByDirections(box, xDirection::Left, yDirection::Down, zDirection::Front).z();
-
-    retV(1, 0) = GetPointByDirections(box, xDirection::Right, yDirection::Down, zDirection::Front).x();
-    retV(1, 1) = GetPointByDirections(box, xDirection::Right, yDirection::Down, zDirection::Front).y();
-    retV(1, 2) = GetPointByDirections(box, xDirection::Right, yDirection::Down, zDirection::Front).z();
-
-    retV(2, 0) = GetPointByDirections(box, xDirection::Left, yDirection::Up, zDirection::Front).x();
-    retV(2, 1) = GetPointByDirections(box, xDirection::Left, yDirection::Up, zDirection::Front).y();
-    retV(2, 2) = GetPointByDirections(box, xDirection::Left, yDirection::Up, zDirection::Front).z();
-
-    retV(3, 0) = GetPointByDirections(box, xDirection::Right, yDirection::Up, zDirection::Front).x();
-    retV(3, 1) = GetPointByDirections(box, xDirection::Right, yDirection::Up, zDirection::Front).y();
-    retV(3, 2) = GetPointByDirections(box, xDirection::Right, yDirection::Up, zDirection::Front).z();
-
-    retV(4, 0) = GetPointByDirections(box, xDirection::Left, yDirection::Up, zDirection::Back).x();
-    retV(4, 1) = GetPointByDirections(box, xDirection::Left, yDirection::Up, zDirection::Back).y();
-    retV(4, 2) = GetPointByDirections(box, xDirection::Left, yDirection::Up, zDirection::Back).z();
-
-    retV(5, 0) = GetPointByDirections(box, xDirection::Right, yDirection::Up, zDirection::Back).x();
-    retV(5, 1) = GetPointByDirections(box, xDirection::Right, yDirection::Up, zDirection::Back).y();
-    retV(5, 2) = GetPointByDirections(box, xDirection::Right, yDirection::Up, zDirection::Back).z();
-
-    retV(6, 0) = GetPointByDirections(box, xDirection::Left, yDirection::Down, zDirection::Back).x();
-    retV(6, 1) = GetPointByDirections(box, xDirection::Left, yDirection::Down, zDirection::Back).y();
-    retV(6, 2) = GetPointByDirections(box, xDirection::Left, yDirection::Down, zDirection::Back).z();
-
-    retV(7, 0) = GetPointByDirections(box, xDirection::Right, yDirection::Down, zDirection::Back).x();
-    retV(7, 1) = GetPointByDirections(box, xDirection::Right, yDirection::Down, zDirection::Back).y();
-    retV(7, 2) = GetPointByDirections(box, xDirection::Right, yDirection::Down, zDirection::Back).z();
-
-    retF(0, 0) = 0;
-    retF(0, 1) = 1;
-    retF(0, 2) = 2;
-
-    retF(1, 0) = 1;
-    retF(1, 1) = 2;
-    retF(1, 2) = 3;
-
-    retF(2, 0) = 2;
-    retF(2, 1) = 4;
-    retF(2, 2) = 3;
-
-    retF(3, 0) = 4;
-    retF(3, 1) = 3;
-    retF(3, 2) = 5;
-
-    retF(4, 0) = 4;
-    retF(4, 1) = 5;
-    retF(4, 2) = 6;
-
-    retF(5, 0) = 5;
-    retF(5, 1) = 6;
-    retF(5, 2) = 7;
-
-    retF(6, 0) = 1;
-    retF(6, 1) = 6;
-    retF(6, 2) = 7;
-
-    retF(7, 0) = 0;
-    retF(7, 1) = 1;
-    retF(7, 2) = 6;
-
-    retF(8, 0) = 0;
-    retF(8, 1) = 2;
-    retF(8, 2) = 4;
-
-    retF(9, 0) = 0;
-    retF(9, 1) = 4;
-    retF(9, 2) = 6;
-
-    retF(10, 0) = 1;
-    retF(10, 1) = 3;
-    retF(10, 2) = 5;
-
-    retF(11, 0) = 1;
-    retF(11, 1) = 5;
-    retF(11, 2) = 7;
-
-    Eigen::MatrixXd normals = Eigen::MatrixXd();
-
-    std::cout << "Matrix: " << std::endl;
-
-    std::cout << retV << std::endl;
-
-    std::cout << "Cube faces: " << std::endl;
-
-    std::cout << retF << std::endl;
-
-    igl::per_vertex_normals(retV, retF, normals);
-
-    return {retV, retF, normals, std::move(Mesh::Cube()->data[0].textureCoords)};
-}
-
+Eigen::Vector3f moveEachFrame = {-0.005,0,0};
 std::shared_ptr<cg3d::AutoMorphingModel> autoCyl1;
 std::shared_ptr<cg3d::AutoMorphingModel> autoCyl2;
 std::shared_ptr<cg3d::Model> cyl1WrappingCube;
 std::shared_ptr<cg3d::Model> cyl2WrappingCube;
+std::shared_ptr<cg3d::Model> showObbCube1;
+std::shared_ptr<cg3d::Model> showObbCube2;
 
 int meshDataIndex = 0;
 
@@ -248,10 +59,10 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
             // camera->RotateInSystem(system, -0.1f, Axis::X);
             break;
         case GLFW_KEY_LEFT:
-            camera->RotateInSystem(system, 0.1f, Axis::Y);
+            moveEachFrame = moveEachFrame + Eigen::Vector3f{-0.002,0,0};
             break;
         case GLFW_KEY_RIGHT:
-            camera->RotateInSystem(system, -0.1f, Axis::Y);
+            moveEachFrame = moveEachFrame + Eigen::Vector3f{0.002,0,0};
             break;
         case GLFW_KEY_W:
             camera->TranslateInSystem(system, {0, 0.05f, 0});
@@ -401,15 +212,14 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
 
     OBB obb2 = getOBBfromAABB(treeCyl2.m_box, autoCyl2);
 
-    cg3d::MeshData meshData = GetMeshDataFromOBB(&obb1);
-
-    auto customMesh = cg3d::Mesh("mycustomcube", std::vector<cg3d::MeshData>{meshData});
-    cyl1WrappingCube = cg3d::Model::Create("cyl1WrappingCube", std::make_shared<Mesh>(customMesh), material);
-
+    cyl1WrappingCube = Model::Create("cube1", Mesh::Cube(), material);
+    cyl1WrappingCube->Translate(obb1.Pos);
+    cyl1WrappingCube->Scale(obb1.Half_size*2);
+    
     cyl1WrappingCube->showFaces = false;
 
     cyl1WrappingCube->showWireframe = true;
-    // cyl1WrappingCube->aggregatedTransform = std::move(autoCyl1->aggregatedTransform);
+    
     cyl1WrappingCube->isPickable = false;
 
     root->AddChild(autoCyl1);
@@ -417,23 +227,41 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     autoCyl1->Scale(8.0f);
     autoCyl1->AddChild(cyl1WrappingCube);
     cyl1WrappingCube->modelOnPick = autoCyl1;
-    cyl1WrappingCube->aggregatedTransform = autoCyl1->aggregatedTransform;
-    cg3d::MeshData meshData2 = GetMeshDataFromOBB(&obb2);
 
-    auto customMesh2 = cg3d::Mesh("mycustomcube2", std::vector<cg3d::MeshData>{meshData2});
-    cyl2WrappingCube = cg3d::Model::Create("cyl2WrappingCube", std::make_shared<Mesh>(customMesh2), material);
+    cyl2WrappingCube = Model::Create("cube2", Mesh::Cube(), material);
+    cyl2WrappingCube->Translate(obb2.Pos);
+    cyl2WrappingCube->Scale(obb2.Half_size*2);
 
     cyl2WrappingCube->showFaces = false;
     cyl2WrappingCube->showWireframe = true;
     
     cyl2WrappingCube->isPickable = false;
-    // cyl2WrappingCube->aggregatedTransform = std::move(autoCyl2->aggregatedTransform);
+    
     root->AddChild(autoCyl2);
     autoCyl2->Translate({3, -0.2, 0});
     autoCyl2->Scale(8.0f);
     autoCyl2->AddChild(cyl2WrappingCube);
     cyl2WrappingCube->modelOnPick = autoCyl2;
-    cyl2WrappingCube->aggregatedTransform = autoCyl2->aggregatedTransform;
+
+    //Needed for refreshing transformations
+    autoCyl1->Translate({1,0,0});
+    autoCyl1->Translate({-1,0,0});
+
+    showObbCube1 = Model::Create("cube3", Mesh::Cube(), material);
+
+    showObbCube1->showFaces = false;
+    showObbCube1->showWireframe = true;
+    showObbCube1->isHidden = true;
+
+    root->AddChild(showObbCube1);
+
+    showObbCube2 = Model::Create("cube4", Mesh::Cube(), material);
+
+    showObbCube2->showFaces = false;
+    showObbCube2->showWireframe = true;
+    showObbCube2->isHidden = true;
+
+    root->AddChild(showObbCube2);
 }
 
 /**
@@ -489,13 +317,12 @@ void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, con
         OBB *collidingOBB = getCollidingOBB(&treeCyl1, &treeCyl2, autoCyl1, autoCyl2);
         if (collidingOBB == NULL)
         {
-            // cyl2WrappingCube->Translate({-0.05, 0, 0});
-            autoCyl2->Translate({-0.05, 0, 0});
+            autoCyl2->Translate(moveEachFrame);
         }
         else
         {
-            showOBB(collidingOBB);
             pause = true;
+            showOBB(collidingOBB);
         }
     }
 }
@@ -550,32 +377,32 @@ OBB getOBBfromAABB(Eigen::AlignedBox3d box, std::shared_ptr<cg3d::AutoMorphingMo
     return obb;
 }
 
+int myindex = 3;
+Eigen::Vector3f oldT1(0,0,0);
+Eigen::Vector3f oldT2(0,0,0);
+Eigen::Vector3f oldS1(1,1,1);
+Eigen::Vector3f oldS2(1,1,1);
+
 void BasicScene::showOBB(OBB *box)
 {
-    std::cout << "should show box with center" << box->Pos.transpose() << std::endl;
+    showObbCube1->isHidden = false;
+    showObbCube2->isHidden = false;
+    showObbCube1->Translate(-oldT1);
+    showObbCube1->Scale(Eigen::Vector3f(1/oldS1(0),1/oldS1(1),1/oldS1(2)));
 
-    auto program = std::make_shared<Program>("shaders/basicShader");
-    auto material{std::make_shared<Material>("material", program)};
+    showObbCube1->Translate(box->Pos);
+    showObbCube1->Scale(box->Half_size*2);
 
-    cg3d::MeshData meshData1 = GetMeshDataFromOBB(box);
+    showObbCube2->Translate(-oldT2);
+    showObbCube2->Scale(Eigen::Vector3f(1/oldS2(0),1/oldS2(1),1/oldS2(2)));
 
-    auto meshShowObb = cg3d::Mesh("showobb", std::vector<cg3d::MeshData>{meshData1});
-    auto showObbCube = cg3d::Model::Create("showObbCube", std::make_shared<Mesh>(meshShowObb), material);
+    showObbCube2->Translate((box + 1)->Pos);
+    showObbCube2->Scale((box + 1)->Half_size*2);
 
-    showObbCube->showFaces = false;
-
-    showObbCube->showWireframe = true;
-    root->AddChild(showObbCube);
-
-    cg3d::MeshData meshData2 = GetMeshDataFromOBB((box + 1));
-
-    auto meshShowObb2 = cg3d::Mesh("showobb2", std::vector<cg3d::MeshData>{meshData2});
-    auto showObbCube2 = cg3d::Model::Create("showObbCube2", std::make_shared<Mesh>(meshShowObb2), material);
-
-    showObbCube2->showFaces = false;
-
-    showObbCube2->showWireframe = true;
-    root->AddChild(showObbCube2);
+    oldT1 = box->Pos;
+    oldT2 = (box + 1)->Pos;
+    oldS1 = box->Half_size*2;
+    oldS2 = (box + 1)->Half_size*2;
 }
 
 OBB *getCollidingOBB(igl::AABB<Eigen::MatrixXd, 3> *tree1, igl::AABB<Eigen::MatrixXd, 3> *tree2, std::shared_ptr<cg3d::AutoMorphingModel> model1, std::shared_ptr<cg3d::AutoMorphingModel> model2)
