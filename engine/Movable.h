@@ -85,6 +85,8 @@ public:
     Eigen::Affine3f Tout{Eigen::Affine3f::Identity()}, Tin{Eigen::Affine3f::Identity()}; // transformations of *this* object (only)
     float lineWidth = 2;
     bool isPickable = true;
+    //Our change!!
+    //For picking inner models - A model to be picked instead of 'this'
     std::shared_ptr<cg3d::Model> modelOnPick = nullptr;
     bool isStatic = false;
     std::vector<std::shared_ptr<Movable>> children;
