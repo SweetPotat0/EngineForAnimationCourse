@@ -17,13 +17,6 @@ struct MeshData
     const Eigen::MatrixXd textureCoords; // UV vertices
 };
 
-struct OverlayData
-{
-    const Eigen::RowVector3d points; // Vertices of the mesh (#V x 3)
-    const Eigen::RowVector3d colors; // Faces of the mesh (#F x 3)
-    const Eigen::RowVector3d edges; // One normal per vertex    
-};
-
 class Mesh
 {
 public:

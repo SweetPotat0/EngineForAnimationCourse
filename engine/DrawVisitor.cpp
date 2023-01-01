@@ -27,7 +27,6 @@ void DrawVisitor::Init()
     // clear and set up the depth and color buffers (and the stencil buffer if outline is enabled)
     unsigned int flags = GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT;
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    
     glClearColor(0, 0, 0, 0);
 
     // clear and set up the stencil buffer if outline is enabled
@@ -53,10 +52,9 @@ void DrawVisitor::Visit(Model* model)
     Visitor::Visit(model); // draw children first
 
     if (!model->isHidden) {
-        Eigen::Matrix4f modelTransform = model->isStatic ? model->GetAggregatedTransform() : norm * model->GetAggregatedTransform();
+        Eigen::Matrix4f modelTransform = model->isStatic ? model->aggregatedTransform : norm * model->aggregatedTransform;
         const Program* program = model->material->BindProgram();
         scene->Update(*program, proj, view, modelTransform);
-        // glEnable(GL_LINE_SMOOTH);
         glLineWidth(model->lineWidth);
 
         // enable writing to the stencil only when we draw the picked model (and we want to draw an outline)
@@ -78,14 +76,14 @@ void DrawVisitor::DrawOutline()
 {
     auto& model = scene->pickedModel;
     auto program = model->material->BindFixedColorProgram();
-    scene->Update(*program, proj, view, model->isStatic ? model->GetAggregatedTransform() : norm * model->GetAggregatedTransform());
+    scene->Update(*program, proj, view, model->isStatic ? model->aggregatedTransform : norm * model->aggregatedTransform);
     program->SetUniform4fv("fixedColor", 1, &outlineLineColor);
 
     // draw the picked model with thick lines only where previously the stencil wasn't touched (i.e. around the original model)
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glStencilMask(0x0);
     glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-   glLineWidth(outlineLineWidth);
+    glLineWidth(outlineLineWidth);
     model->UpdateDataAndDrawMeshes(*program, false, false);
 }
 

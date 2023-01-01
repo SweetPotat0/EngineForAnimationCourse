@@ -9,7 +9,7 @@ void Visitor::Run(Scene* scene, Camera* camera)
 {
     proj = camera->GetViewProjection();
     view = camera->GetAggregatedTransform().inverse();
-    norm = scene->GetAggregatedTransform();
+    norm = scene->aggregatedTransform;
 
     scene->Accept(this);
 }
