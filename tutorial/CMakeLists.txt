@@ -36,3 +36,5 @@ add_subdirectory(Homework1)
 add_subdirectory(MyHW1Try)
 
 add_subdirectory(Hw2)
+
+add_subdirectory(hw3)
