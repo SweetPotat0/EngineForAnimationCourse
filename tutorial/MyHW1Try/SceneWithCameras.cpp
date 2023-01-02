@@ -119,78 +119,78 @@ void SceneWithCameras::SetCamera(int index)
 void SceneWithCameras::Init(float fov, int width, int height, float near, float far)
 {
     // create the basic elements of the scene
-    AddChild(root = Movable::Create("root")); // a common (invisible) parent object for all the shapes
-    auto program = std::make_shared<Program>("shaders/basicShader"); // TODO: TAL: replace with hard-coded basic program
-    carbon = std::make_shared<Material>("carbon", program); // default material
-    carbon->AddTexture(0, "textures/carbon.jpg", 2);
+    // AddChild(root = Movable::Create("root")); // a common (invisible) parent object for all the shapes
+    // auto program = std::make_shared<Program>("shaders/basicShader"); // TODO: TAL: replace with hard-coded basic program
+    // carbon = std::make_shared<Material>("carbon", program); // default material
+    // carbon->AddTexture(0, "textures/carbon.jpg", 2);
 
-    // create the camera objects
-    camList.resize(camList.capacity());
-    camList[0] = Camera::Create("camera0", fov, float(width) / float(height), near, far);
-    for (int i = 1; i < camList.size(); i++) {
-        auto camera = Camera::Create("", fov, double(width) / height, near, far);
-        auto model = ObjLoader::ModelFromObj(std::string("camera") + std::to_string(i), "data/camera.obj", carbon);
-        root->AddChild(camList[i] = CamModel::Create(*camera, *model));
-    }
+    // // create the camera objects
+    // camList.resize(camList.capacity());
+    // camList[0] = Camera::Create("camera0", fov, float(width) / float(height), near, far);
+    // for (int i = 1; i < camList.size(); i++) {
+    //     auto camera = Camera::Create("", fov, double(width) / height, near, far);
+    //     auto model = ObjLoader::ModelFromObj(std::string("camera") + std::to_string(i), "data/camera.obj", carbon);
+    //     root->AddChild(camList[i] = CamModel::Create(*camera, *model));
+    // }
 
-    camList[0]->Translate(10, Axis::Z);
-    camList[1]->Translate(-3, Axis::X);
-    camList[1]->RotateByDegree(-90, Axis::Y);
-    camList[2]->Translate(-8, Axis::Z);
-    camList[2]->RotateByDegree(180, Axis::Y);
-    camList[3]->Translate(3, Axis::X);
-    camList[3]->RotateByDegree(90, Axis::Y);
-    camera = camList[0];
+    // camList[0]->Translate(10, Axis::Z);
+    // camList[1]->Translate(-3, Axis::X);
+    // camList[1]->RotateByDegree(-90, Axis::Y);
+    // camList[2]->Translate(-8, Axis::Z);
+    // camList[2]->RotateByDegree(180, Axis::Y);
+    // camList[3]->Translate(3, Axis::X);
+    // camList[3]->RotateByDegree(90, Axis::Y);
+    // camera = camList[0];
 
-    auto bricks{std::make_shared<Material>("bricks", program)};
-    auto grass{std::make_shared<Material>("grass", program)};
-    auto daylight{std::make_shared<Material>("daylight", "shaders/cubemapShader")};
+    // auto bricks{std::make_shared<Material>("bricks", program)};
+    // auto grass{std::make_shared<Material>("grass", program)};
+    // auto daylight{std::make_shared<Material>("daylight", "shaders/cubemapShader")};
 
-    bricks->AddTexture(0, "textures/bricks.jpg", 2);
-    grass->AddTexture(0, "textures/grass.bmp", 2);
-    daylight->AddTexture(0, "textures/cubemaps/Daylight Box_", 3);
+    // bricks->AddTexture(0, "textures/bricks.jpg", 2);
+    // grass->AddTexture(0, "textures/grass.bmp", 2);
+    // daylight->AddTexture(0, "textures/cubemaps/Daylight Box_", 3);
 
-    auto background{Model::Create("background", Mesh::Cube(), daylight)};
-    AddChild(background);
+    // auto background{Model::Create("background", Mesh::Cube(), daylight)};
+    // AddChild(background);
 
-    cube1 = Model::Create("cube1", Mesh::Cube(), bricks);
-    cube2 = Model::Create("cube2", Mesh::Cube(), bricks);
-    cube1->Translate({-3, 0, -5});
-    cube2->Translate({3, 0, -5});
-    root->AddChildren({cube1, cube2});
+    // cube1 = Model::Create("cube1", Mesh::Cube(), bricks);
+    // cube2 = Model::Create("cube2", Mesh::Cube(), bricks);
+    // cube1->Translate({-3, 0, -5});
+    // cube2->Translate({3, 0, -5});
+    // root->AddChildren({cube1, cube2});
 
-    auto snakeMesh{ObjLoader::MeshFromObjFiles<std::string>("snakeMesh", "data/snake1.obj", "data/snake2.obj")};
-    auto blank{std::make_shared<Material>("blank", program)};
-    auto snake{Model::Create("snake", snakeMesh, blank)};
+    // auto snakeMesh{ObjLoader::MeshFromObjFiles<std::string>("snakeMesh", "data/snake1.obj", "data/snake2.obj")};
+    // auto blank{std::make_shared<Material>("blank", program)};
+    // auto snake{Model::Create("snake", snakeMesh, blank)};
 
-    auto morphFunc = [](Model* model, cg3d::Visitor* visitor) {
-        static float prevDistance = -1;
-        float distance = (visitor->view * visitor->norm * model->aggregatedTransform).norm();
-        if (prevDistance != distance)
-            debug(model->name, " distance from camera: ", prevDistance = distance);
-        return distance > 3 ? 1 : 0;
-    };
-    auto autoSnake = AutoMorphingModel::Create(*snake, morphFunc);
-    autoSnake->showWireframe = true;
-    root->AddChild(autoSnake);
+    // auto morphFunc = [](Model* model, cg3d::Visitor* visitor) {
+    //     static float prevDistance = -1;
+    //     float distance = (visitor->view * visitor->norm * model->aggregatedTransform).norm();
+    //     if (prevDistance != distance)
+    //         debug(model->name, " distance from camera: ", prevDistance = distance);
+    //     return distance > 3 ? 1 : 0;
+    // };
+    // auto autoSnake = AutoMorphingModel::Create(*snake, morphFunc);
+    // autoSnake->showWireframe = true;
+    // root->AddChild(autoSnake);
 
-    root->AddChild(cylinder = Model::Create("cylinder", Mesh::Cylinder(), grass));
-    auto sphereMesh{ObjLoader::MeshFromObjFiles("sphereMesh", "data/sphere.obj")};
-    sphere1 = Model::Create("sphere1", sphereMesh, grass);
-    sphere2 = Model::Create("sphere2", sphereMesh, grass);
-    cylinder->AddChildren({sphere1, sphere2});
-    sphere1->Translate(-1.3f, Axis::X);
-    sphere2->Translate(1.3f, Axis::X);
-    sphere1->showWireframe = true;
-    sphere2->showWireframe = true;
-    sphere1->isPickable = false;
-    sphere2->isPickable = false;
-    cylinder->Translate({0, -3, -5});
-    cylinder->showWireframe = true;
+    // root->AddChild(cylinder = Model::Create("cylinder", Mesh::Cylinder(), grass));
+    // auto sphereMesh{ObjLoader::MeshFromObjFiles("sphereMesh", "data/sphere.obj")};
+    // sphere1 = Model::Create("sphere1", sphereMesh, grass);
+    // sphere2 = Model::Create("sphere2", sphereMesh, grass);
+    // cylinder->AddChildren({sphere1, sphere2});
+    // sphere1->Translate(-1.3f, Axis::X);
+    // sphere2->Translate(1.3f, Axis::X);
+    // sphere1->showWireframe = true;
+    // sphere2->showWireframe = true;
+    // sphere1->isPickable = false;
+    // sphere2->isPickable = false;
+    // cylinder->Translate({0, -3, -5});
+    // cylinder->showWireframe = true;
 
-    background->Scale(120, Axis::XYZ);
-    background->SetPickable(false);
-    background->SetStatic();
+    // background->Scale(120, Axis::XYZ);
+    // background->SetPickable(false);
+    // background->SetStatic();
 }
 
 void SceneWithCameras::Update(const Program& p, const Eigen::Matrix4f& proj, const Eigen::Matrix4f& view, const Eigen::Matrix4f& model)

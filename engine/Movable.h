@@ -84,7 +84,7 @@ public:
     static Eigen::Affine3f GetScaling(const Eigen::Matrix4f& _transform);
 
     Eigen::Affine3f Tout{Eigen::Affine3f::Identity()}, Tin{Eigen::Affine3f::Identity()}; // transformations of *this* object (only)
-    float lineWidth = 5;
+    float lineWidth = 1;
     bool isPickable = true;
     //Our change!!
     //For picking inner models - A model to be picked instead of 'this'
