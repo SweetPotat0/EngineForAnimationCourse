@@ -31,11 +31,12 @@ public:
 
     [[nodiscard]] inline int GetWindowWidth() const { return windowWidth; }
     [[nodiscard]] inline int GetWindowHeight() const { return windowHeight; };
+    DrawVisitor defaultVisitor;
 
 private:
     Viewport* FindViewportAtPos(int x, int y);
 
-    DrawVisitor defaultVisitor;
+    
     std::vector<std::shared_ptr<Viewport>> viewports;
     Viewport* viewportAtMousePress = nullptr;
     Viewport* viewportAtKeyPress = nullptr;
