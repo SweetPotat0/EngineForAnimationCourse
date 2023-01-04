@@ -165,6 +165,13 @@ void Movable::RotateInSystem(const Eigen::Matrix3f& system, float angle, Axis ax
     PropagateTransform();
 }
 
+void Movable::RotateInSystem(const Eigen::Matrix3f& system, float angle, Eigen::Vector3f axis)
+{
+    if (isStatic) return;
+    Tout.rotate(Eigen::AngleAxisf(angle, Tout.rotation().transpose() * system.transpose() * axis));
+    PropagateTransform();
+}
+
 Eigen::Matrix3f Movable::GetRotation() const
 {
     return Eigen::Affine3f(aggregatedTransform).rotation();

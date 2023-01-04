@@ -56,6 +56,7 @@ public:
     virtual void RotateByDegree(float degree, Axis axis);
     virtual void RotateByDegree(float degree, const Eigen::Vector3f& axisVec);
     virtual void RotateInSystem(const Eigen::Matrix3f& system, float angle, Axis axis);
+    virtual void RotateInSystem(const Eigen::Matrix3f& system, float angle, Eigen::Vector3f axis);
     virtual Eigen::Matrix3f GetRotation() const;
 
     virtual void Scale(float factor);
