@@ -4,10 +4,10 @@
         "name": "(Windows) Launch",
         "type": "cppvsdbg",
         "request": "launch",
-        "program": "${workspaceFolder}/build/Debug/Hw2_bin.exe",
+        "program": "${workspaceFolder}/build/Debug/final-project_bin.exe",
         "args": [],
         "stopAtEntry": false,
-        "cwd": "${workspaceFolder}/build/",
+        "cwd": "${workspaceFolder}/build",
         "environment": [],
         "console": "externalTerminal"
     }

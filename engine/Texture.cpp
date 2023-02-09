@@ -104,7 +104,12 @@ Texture::~Texture()
 unsigned char* Texture::LoadFromFile(const std::string& fileName, int* width, int* height, int* numComponents)
 {
     unsigned char* data = stbi_load(fileName.c_str(), width, height, numComponents, 4);
-    if (data == nullptr) throw std::runtime_error(fileName + " stbi_load error");
+    if (data == nullptr){
+        data = stbi_load(("../" + fileName).c_str(), width, height, numComponents, 4);
+        if(data == nullptr){
+            throw std::runtime_error(fileName + " stbi_load error");
+        }
+    } 
     return data;
 }
 

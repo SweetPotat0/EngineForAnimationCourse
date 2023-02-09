@@ -203,8 +203,12 @@ std::string Shader::ReadFile(const std::string& fileName)
 {
     debug("loading file ", fileName);
     std::ifstream file(fileName);
-    if (!file.is_open())
-        throw std::invalid_argument("error opening file " + fileName);
+    if (!file.is_open()) {
+        file = std::ifstream("../" + fileName);
+        if(!file.is_open()){
+            throw std::invalid_argument("error opening file " + fileName);
+        }
+    }
 
     file.seekg(0, std::ios::end);
     int len = (int) file.tellg();
