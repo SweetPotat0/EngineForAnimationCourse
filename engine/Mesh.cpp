@@ -327,4 +327,15 @@ f 40/82 21/81 42/84
     return MESH;
 }
 
+const std::shared_ptr<Mesh>& Mesh::Axis(){
+    Eigen::MatrixXd vertices(6, 3);
+    vertices << -1, 0, 0, 1, 0, 0, 0, -1, 0, 0, 1, 0, 0, 0, -1, 0, 0, 1;
+    Eigen::MatrixXi faces(3, 2);
+    faces << 0, 1, 2, 3, 4, 5;
+    Eigen::MatrixXd vertexNormals = Eigen::MatrixXd::Ones(6, 3);
+    Eigen::MatrixXd textureCoords = Eigen::MatrixXd::Ones(6, 2);
+    static const std::shared_ptr<Mesh> axis = std::make_shared<Mesh>("axis", vertices, faces, vertexNormals, textureCoords);
+    return axis;
+}
+
 } // namespace cg3d

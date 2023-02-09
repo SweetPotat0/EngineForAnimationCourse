@@ -24,9 +24,13 @@
 
 using namespace cg3d;
 
-void BasicScene::animation(){
-    Eigen::MatrixX3f system = links[3]->GetRotation();
-    links[0]->TranslateInSystem(system, Eigen::Vector3f(-0.01f,0,0));
+void BasicScene::animation()
+{
+    std::cout << "System: " << std::endl;
+    std::cout << Eigen::Affine3f(links[3]->GetAggregatedTransform()).rotation() << std::endl;
+
+    Eigen::MatrixX3f system = Eigen::Affine3f(links[3]->GetAggregatedTransform()).rotation().transpose();
+    links[0]->TranslateInSystem(system, Eigen::Vector3f(0.01f, 0, 0));
 }
 void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, int scancode, int action, int mods)
 {
@@ -40,20 +44,20 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
         {
         case GLFW_KEY_SPACE:
             animate = !animate;
-            std::cout<< camList[1]->GetRotation() << std::endl;
+            std::cout << camList[1]->GetRotation() << std::endl;
             break;
 
         case GLFW_KEY_ESCAPE:
-        // open menu
+            // open menu
             glfwSetWindowShouldClose(window, GLFW_TRUE);
             break;
         case GLFW_KEY_W:
             // links[0]->Rotate(0.1, Axis::X);
-            links[3]->RotateInSystem(system,0.1,Axis::X);
+            links[3]->RotateInSystem(system, 0.1, Axis::X);
             break;
         case GLFW_KEY_S:
             // links[0]->Rotate(-0.1, Axis::X);
-            links[3]->RotateInSystem(system,-0.1,Axis::X);
+            links[3]->RotateInSystem(system, -0.1, Axis::X);
             break;
         case GLFW_KEY_A:
             // links[picked_index]->Rotate(-0.1,Axis::Z);
@@ -88,7 +92,7 @@ void BasicScene::ScrollCallback(Viewport *viewport, int x, int y, int xoffset, i
     }
     else
     {
-        camera->TranslateInSystem(system, {0, -float(yoffset), 0});
+        camera->TranslateInSystem(system, {0, 0, -float(yoffset)});
         cameraToutAtPress = camera->GetTout();
     }
 }
@@ -272,6 +276,7 @@ void BasicScene::BuildImGui()
         ImGui::SameLine();
         if (ImGui::Button("Center"))
             camera->SetTout(Eigen::Affine3f::Identity());
+        ImGui::Text("AXES: X-RED Y-GREEN Z-BLUE");
         if (pickedModel)
         {
             ImGui::Text("Picked model: %s", pickedModel->name.c_str());
@@ -351,23 +356,20 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
 
     auto program = std::make_shared<Program>("shaders/basicShader");
     auto program1 = std::make_shared<Program>("shaders/pickingShader");
+    auto program2 = std::make_shared<Program>("shaders/axisShader");
     auto material = std::make_shared<Material>("material", program);
     auto material1{std::make_shared<Material>("material", program1)};
+    auto axis_material = std::make_shared<Material>("axis-material", program2);
     material->AddTexture(0, "textures/box0.bmp", 2);
 
     auto cylMesh{IglLoader::MeshFromFiles("cyl_igl", "data/snake2.obj")};
     auto sphereMesh{IglLoader::MeshFromFiles("sphere_igl", "data/sphere.obj")};
-    Eigen::MatrixXd vertices(6, 3);
-    vertices << -1, 0, 0, 1, 0, 0, 0, -1, 0, 0, 1, 0, 0, 0, -1, 0, 0, 1;
-    Eigen::MatrixXi faces(3, 2);
-    faces << 0, 1, 2, 3, 4, 5;
-    Eigen::MatrixXd vertexNormals = Eigen::MatrixXd::Ones(6, 3);
-    Eigen::MatrixXd textureCoords = Eigen::MatrixXd::Ones(6, 2);
-    std::shared_ptr<Mesh> coordsys = std::make_shared<Mesh>("coordsys", vertices, faces, vertexNormals, textureCoords);
+    auto coordsys = Mesh::Axis();
 
     sceneRoot = cg3d::Model::Create("sroot", sphereMesh, material);
     sceneRoot->isHidden = true;
     AddChild(sceneRoot);
+    // sceneRoot->AddChild(Model::Create("sceneRoot axis", coordsys, axis_material));
 
     root = cg3d::Model::Create("root", sphereMesh, material);
     root->isHidden = true;
@@ -378,11 +380,13 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     camList.push_back(Camera::Create("Static Top Camera", fov, float(width) / float(height), near, far));
     camera = camList[0];
 
-
-    axis1.push_back(Model::Create("axis", coordsys, material));
+    // Third Person axis
+    axis1.push_back(Model::Create("cam index 0 axis", coordsys, axis_material));
     axis1[0]->mode = 1;
     camList[0]->AddChild(axis1[0]);
-    axis1.push_back(Model::Create("axis", coordsys, material));
+
+    // First Person Axis
+    axis1.push_back(Model::Create("cam index 1 axis", coordsys, axis_material));
     axis1[1]->mode = 1;
     camList[1]->AddChild(axis1[1]);
 
@@ -393,35 +397,38 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     sceneRoot->AddChild(sphere);
     sphere->Translate(Eigen::Vector3f{5, 0, 0});
 
-    axis.push_back(Model::Create("axis", coordsys, material));
+    axis.push_back(Model::Create("root axis", coordsys, axis_material));
     axis[0]->mode = 1;
     root->AddChild(axis[0]);
+    axis[0]->SetTout(Eigen::Affine3f::Identity());
     axis[0]->modelOnPick = root;
 
-    links.push_back(cg3d::Model::Create("link", cylMesh, material));
+    links.push_back(cg3d::Model::Create("link 0", cylMesh, material));
     links[0]->showWireframe = true;
     links[0]->Translate(0.8f, Axis::Z);
     links[0]->SetCenter(Eigen::Vector3f(0, 0, -0.8));
     root->AddChild(links[0]);
-    links[0]->modelOnPick = root;
 
     int linksCount = 4;
 
     for (size_t i = 1; i < linksCount; i++)
     {
-        links.push_back(cg3d::Model::Create("link", cylMesh, material));
+        links.push_back(cg3d::Model::Create("link " + std::to_string(i), cylMesh, material));
         links[i]->showWireframe = true;
         links[i]->Translate(1.6f, Axis::Z);
         links[i]->SetCenter(Eigen::Vector3f(0, 0, -0.8));
         links[i - 1]->AddChild(links[i]);
-        links[i]->modelOnPick = root;
 
-        axis.push_back(Model::Create("axis", coordsys, material));
+        axis.push_back(Model::Create("axis of link " + std::to_string(i - 1), coordsys, axis_material));
         axis[i]->mode = 1;
-        axis[i]->Translate(0.8f, Axis::Z);
         links[i - 1]->AddChild(axis[i]);
-        axis[i]->modelOnPick = root;
+        axis[i]->SetTout(Eigen::Affine3f::Identity());
     }
+
+    axis.push_back(Model::Create("axis of link " + std::to_string(linksCount - 1), coordsys, axis_material));
+    axis[linksCount]->mode = 1;
+    links[linksCount - 1]->AddChild(axis[linksCount]);
+    axis[linksCount]->SetTout(Eigen::Affine3f::Identity());
 
     links[linksCount - 1]->AddChild(camList[0]);
     links[linksCount - 1]->AddChild(camList[1]);
@@ -430,23 +437,21 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     // axis[0]->RotateByDegree(-90, Axis::X);
     sceneRoot->RotateByDegree(-90, Axis::X);
 
+    // Third Person
     camList[0]->Translate(-10, Axis::Z);
-    camList[0]->RotateByDegree(180, Eigen::Vector3f(0, 1, 0));
-    camList[0]->Translate(5, Axis::Y);
-    camList[0]->RotateByDegree(-22.5, Eigen::Vector3f(1, 0, 0));
+    camList[0]->Translate(-5, Axis::Y);
+    camList[0]->RotateByDegree(158.5, Eigen::Vector3f(1, 0, 0));
 
     float firstPersonOffset = 1;
-
+    // First Person
     camList[1]->SetTout(Eigen::Affine3f::Identity());
     camList[1]->Translate(firstPersonOffset, Axis::Z);
     camList[1]->RotateByDegree(180, Eigen::Vector3f(1, 0, 0));
-    camList[1]->RotateByDegree(180, Eigen::Vector3f(0, 0, 1));
 
+    // Static Camera above
     camList[2]->SetTout(links[linksCount - 1]->GetTout());
     camList[2]->Translate(20, Scene::Axis::Z);
     camList[2]->Translate(3, Scene::Axis::Y);
-
-    
 }
 void BasicScene::CCD()
 {
@@ -493,9 +498,9 @@ void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, con
     Scene::Update(program, proj, view, model);
     // cube->Rotate(0.01f, Axis::XYZ);
     static int frameCount = 0;
-    // if (frameCount++ % 5000 == 0)
-    // {
-    //     camList[1]->Translate(1, Axis::Z);
-    //     std::cout << "now" << std::endl;
-    // }
+    if (strcmp(program.name.c_str(), "axis-material") == 0)
+    {
+        Eigen::Vector3f position = Eigen::Affine3f(model).translation();
+        program.SetUniform3f("root", position.x(), position.y(), position.z());
+    }
 }

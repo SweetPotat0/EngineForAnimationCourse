@@ -40,6 +40,7 @@ public:
     static const std::shared_ptr<Mesh>& Tetrahedron();
     static const std::shared_ptr<Mesh>& Octahedron();
     static const std::shared_ptr<Mesh>& Cylinder();
+    static const std::shared_ptr<Mesh>& Axis();
 };
 
 } // namespace cg3d
