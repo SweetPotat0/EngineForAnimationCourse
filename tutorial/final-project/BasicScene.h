@@ -32,6 +32,7 @@ public:
     void ScrollCallback(cg3d::Viewport *viewport, int x, int y, int xoffset, int yoffset, bool dragging, int buttonState[]) override;
     void AddViewportCallback(cg3d::Viewport *_viewport) override;
     void CCD();
+    void animation() override;
     Eigen::Vector3f getTipOfLink(int ind);
 
 private:
@@ -42,7 +43,7 @@ private:
     void SetCamera(int index);
     void BuildImGui() override;
     std::vector<std::shared_ptr<cg3d::Camera>> camList;
-    std::vector<std::shared_ptr<cg3d::Model>> links, axis;
+    std::vector<std::shared_ptr<cg3d::Model>> links, axis, axis1;
     std::shared_ptr<cg3d::Model> sphere, root, sceneRoot;
     bool pause = true;
     int picked_index = 0;

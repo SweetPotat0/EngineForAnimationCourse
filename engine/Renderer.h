@@ -3,6 +3,7 @@
 #include <vector>
 #include "Viewport.h"
 #include "DrawVisitor.h"
+#include "AnimationVisitor.h"
 #include "GLFW/glfw3.h"
 
 
@@ -32,6 +33,7 @@ public:
     [[nodiscard]] inline int GetWindowWidth() const { return windowWidth; }
     [[nodiscard]] inline int GetWindowHeight() const { return windowHeight; };
     DrawVisitor defaultVisitor;
+    AnimationVisitor animationVisitor;
 
 private:
     Viewport* FindViewportAtPos(int x, int y);

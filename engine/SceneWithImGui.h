@@ -16,6 +16,7 @@ public:
     void KeyCallback(Viewport* viewport, int x, int y, int key, int scancode, int action, int mods) override;
     void CharCallback(Viewport* viewport, int x, int y, unsigned int codepoint) override;
     void Accept(Visitor* visitor) override;
+    virtual void animation() override {};
 
 protected:
     virtual void BuildImGui() = 0;

@@ -24,11 +24,14 @@
 
 using namespace cg3d;
 
+void BasicScene::animation(){
+    Eigen::MatrixX3f system = links[3]->GetRotation();
+    links[0]->TranslateInSystem(system, Eigen::Vector3f(-0.01f,0,0));
+}
 void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, int scancode, int action, int mods)
 {
-    auto system = camera->GetRotation().transpose();
+    auto system = camList[1]->GetRotation().transpose();
     Eigen::Vector3f pos, angles;
-    float psi, phi, tetha, a;
     Eigen::Matrix3f A1, A2, A3;
 
     if (action == GLFW_PRESS || action == GLFW_REPEAT)
@@ -36,63 +39,29 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
         switch (key) // NOLINT(hicpp-multiway-paths-covered)
         {
         case GLFW_KEY_SPACE:
-            pause = !pause;
+            animate = !animate;
+            std::cout<< camList[1]->GetRotation() << std::endl;
             break;
-        case GLFW_KEY_P:
-            angles = links[picked_index]->GetTout().rotation().eulerAngles(2, 0, 2);
-            phi = angles(0);
-            tetha = angles(1);
-            psi = angles(2);
-            A1 << cos(phi), -sin(phi), 0,
-                sin(phi), cos(phi), 0,
-                0, 0, 1;
-            A2 << 1, 0, 0,
-                0, cos(tetha), -sin(tetha),
-                0, sin(tetha), cos(tetha);
-            A3 << cos(psi), -sin(psi), 0,
-                sin(psi), cos(psi), 0,
-                0, 0, 1;
-            std::cout << "rotation matrices: " << std::endl;
-            std::cout << "Z: " << A1 << std::endl;
-            std::cout << "X: " << A2 << std::endl;
-            std::cout << "Z: " << A3 << std::endl;
-            break;
-        case GLFW_KEY_T:
-            pos = std::move(root->GetTranslation());
-            for (size_t i = 0; i < links.size(); i++)
-            {
-                pos += links[i]->GetRotation() * Eigen::Vector3f{0, 0, 1.6f};
-                std::cout << "tip of link " << i << " at: " << pos.transpose() << std::endl;
-            }
-            break;
-        case GLFW_KEY_D:
-            std::cout << "destination position: " << sphere->GetTranslation().transpose() << std::endl;
-            break;
-        case GLFW_KEY_N:
-            picked_index++;
-            if (links.size() == picked_index)
-            {
-                picked_index = 0;
-            }
-            break;
+
         case GLFW_KEY_ESCAPE:
+        // open menu
             glfwSetWindowShouldClose(window, GLFW_TRUE);
             break;
-        case GLFW_KEY_UP:
-            links[picked_index]->Rotate(0.1, Axis::X);
-            // links[picked_index]->RotateInSystem(axis[picked_index]->GetTout().rotation(),0.1,Axis::X);
+        case GLFW_KEY_W:
+            // links[0]->Rotate(0.1, Axis::X);
+            links[3]->RotateInSystem(system,0.1,Axis::X);
             break;
-        case GLFW_KEY_DOWN:
-            links[picked_index]->Rotate(-0.1, Axis::X);
-            // links[picked_index]->RotateInSystem(axis[picked_index]->GetTout().rotation(),-0.1,Axis::X);
+        case GLFW_KEY_S:
+            // links[0]->Rotate(-0.1, Axis::X);
+            links[3]->RotateInSystem(system,-0.1,Axis::X);
             break;
-        case GLFW_KEY_LEFT:
+        case GLFW_KEY_A:
             // links[picked_index]->Rotate(-0.1,Axis::Z);
-            links[picked_index]->RotateInSystem(axis[picked_index]->GetTout().rotation(), -0.1, Axis::Z);
+            links[3]->RotateInSystem(system, -0.1, Axis::Z);
             break;
-        case GLFW_KEY_RIGHT:
+        case GLFW_KEY_D:
             // links[picked_index]->Rotate(0.1,Axis::Z);
-            links[picked_index]->RotateInSystem(axis[picked_index]->GetTout().rotation(), 0.1, Axis::Z);
+            links[3]->RotateInSystem(system, 0.1, Axis::Z);
             break;
         }
     }
@@ -132,13 +101,11 @@ void BasicScene::CursorPosCallback(Viewport *viewport, int x, int y, bool draggi
     // std::cout << "before dragging" << std::endl;
     if (dragging)
     {
-        std::cout << "in dragging" << std::endl;
         auto system = camera->GetRotation().transpose();
         auto moveCoeff = camera->CalcMoveCoeff(pickedModelDepth, viewport->width);
         auto angleCoeff = camera->CalcAngleCoeff(viewport->width);
         if (pickedModel)
         {
-            std::cout << "WHAT PICKED" << pickedModel->name << std::endl;
             if (buttonState[GLFW_MOUSE_BUTTON_LEFT] != GLFW_RELEASE)
             {
                 pickedModel->SetTout(pickedToutAtPress);
@@ -163,19 +130,13 @@ void BasicScene::CursorPosCallback(Viewport *viewport, int x, int y, bool draggi
         }
         else
         {
-            std::cout << "veffffff" << std::endl;
-            fflush(stdout);
             camera->SetTout(cameraToutAtPress);
-            std::cout << "afffffffff" << std::endl;
-            fflush(stdout);
             if (buttonState[GLFW_MOUSE_BUTTON_LEFT] != GLFW_RELEASE)
             {
-                std::cout << "here beforeee" << std::endl;
                 sceneRoot->RotateInSystem(system, float(x - lastx) / angleCoeff * 3, Axis::Y);
                 sceneRoot->RotateInSystem(system, float(y - lasty) / angleCoeff * 3, Axis::X);
                 lastx = x;
                 lasty = y;
-                std::cout << "here afterrr" << std::endl;
             }
             if (buttonState[GLFW_MOUSE_BUTTON_MIDDLE] != GLFW_RELEASE)
             {
@@ -280,6 +241,7 @@ void BasicScene::BuildImGui()
         if (ImGui::Button("Start Game"))
         {
             gameState = GameState::MidLevel;
+            animate = true;
         }
         TextCentered("Quit Game", 10);
         if (ImGui::Button("Quit Game"))
@@ -416,6 +378,14 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     camList.push_back(Camera::Create("Static Top Camera", fov, float(width) / float(height), near, far));
     camera = camList[0];
 
+
+    axis1.push_back(Model::Create("axis", coordsys, material));
+    axis1[0]->mode = 1;
+    camList[0]->AddChild(axis1[0]);
+    axis1.push_back(Model::Create("axis", coordsys, material));
+    axis1[1]->mode = 1;
+    camList[1]->AddChild(axis1[1]);
+
     sceneRoot->AddChild(root);
 
     sphere = cg3d::Model::Create("sphere", sphereMesh, material);
@@ -465,15 +435,18 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     camList[0]->Translate(5, Axis::Y);
     camList[0]->RotateByDegree(-22.5, Eigen::Vector3f(1, 0, 0));
 
-    float firstPersonOffset = 0;
+    float firstPersonOffset = 1;
 
     camList[1]->SetTout(Eigen::Affine3f::Identity());
     camList[1]->Translate(firstPersonOffset, Axis::Z);
     camList[1]->RotateByDegree(180, Eigen::Vector3f(1, 0, 0));
+    camList[1]->RotateByDegree(180, Eigen::Vector3f(0, 0, 1));
 
     camList[2]->SetTout(links[linksCount - 1]->GetTout());
     camList[2]->Translate(20, Scene::Axis::Z);
     camList[2]->Translate(3, Scene::Axis::Y);
+
+    
 }
 void BasicScene::CCD()
 {
@@ -520,9 +493,9 @@ void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, con
     Scene::Update(program, proj, view, model);
     // cube->Rotate(0.01f, Axis::XYZ);
     static int frameCount = 0;
-    if (frameCount++ % 5000 == 0)
-    {
-        camList[1]->Translate(1, Axis::Z);
-        std::cout << "now" << std::endl;
-    }
+    // if (frameCount++ % 5000 == 0)
+    // {
+    //     camList[1]->Translate(1, Axis::Z);
+    //     std::cout << "now" << std::endl;
+    // }
 }
