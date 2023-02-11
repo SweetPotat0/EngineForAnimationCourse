@@ -74,7 +74,8 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
 
         case GLFW_KEY_ESCAPE:
             // open menu
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
+            gameState = Pause;
+            animate = false;
             break;
         case GLFW_KEY_W:
             // links[0]->Rotate(0.1, Axis::X);
@@ -92,7 +93,23 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
             // links[picked_index]->Rotate(0.1,Axis::Z);
             links[3]->Model->RotateInSystem(system, 0.1, Axis::Z);
             break;
+        case GLFW_KEY_1:
+            gameState = StartMenu;
+            break;
+        case GLFW_KEY_2:
+            gameState = Level1;
+            break;
+        case GLFW_KEY_3:
+            gameState = Level2;
+            break;
+        case GLFW_KEY_4:
+            gameState = Level3;
+            break;
+        case GLFW_KEY_5:
+            gameState = AfterLevel;
+            break;
         }
+        
     }
 }
 
@@ -246,6 +263,43 @@ void TextCentered(std::string text, float margin = 0)
 
     ImGui::SetCursorPosX((windowWidth - textWidth) * 0.5f);
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + margin);
+
+    ImGui::Text(text.c_str());
+}
+
+void cursorCentered(std::string text, float margin = 0)
+{
+    auto windowWidth = ImGui::GetWindowSize().x;
+    auto textWidth = ImGui::CalcTextSize(text.c_str()).x;
+
+    ImGui::SetCursorPosX((windowWidth - textWidth) * 0.5f);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + margin);
+}
+
+void BasicScene::changeNextLevel(){
+    switch (playingLevel)
+    {
+    case 0:
+        gameState = GameState::Level1;
+        break;
+    case 1:
+        gameState = GameState::Level2;
+        break;
+    case 2:
+        gameState = GameState::Level3;
+        break;
+    case 3:
+        gameState = GameState::Level1;
+        break;
+    
+    default:
+        break;
+    }
+}
+void BasicScene::startLevel(int level){
+    playingLevel = level;
+    levelScore = 0;
+    std::cout << "should start level" << level << std::endl;
 }
 
 void BasicScene::BuildImGui()
@@ -257,25 +311,94 @@ void BasicScene::BuildImGui()
 
     switch (gameState)
     {
-    case GameState::Menu:
+    case GameState::StartMenu:
     {
         float window_width = 200;
-        float window_height = 200;
+        float window_height = 190;
         ImGui::SetWindowPos(ImVec2((DISPLAY_WIDTH - window_width) / 2, (DISPLAY_HEIGHT - window_height) / 2), ImGuiCond_Always);
         ImGui::SetWindowSize(ImVec2(window_width, window_height));
 
         TextCentered("Snake 3D", 30);
-        ImGui::Text("Snake 3D");
-        TextCentered("Start Game", 10);
+        cursorCentered("Start Game", 25);
         if (ImGui::Button("Start Game"))
         {
-            gameState = GameState::MidLevel;
-            animate = true;
+            gameState = GameState::Level1;
         }
-        TextCentered("Quit Game", 10);
+        cursorCentered("Quit Game", 25);
         if (ImGui::Button("Quit Game"))
         {
             exit(0);
+        }
+        break;
+    }
+    case GameState::Level1:
+    {
+        float window_width = 400;
+        float window_height = 320;
+        ImGui::SetWindowPos(ImVec2((DISPLAY_WIDTH - window_width) / 2, (DISPLAY_HEIGHT - window_height) / 2), ImGuiCond_Always);
+        ImGui::SetWindowSize(ImVec2(window_width, window_height));
+
+        TextCentered("Level 1", 30);
+        TextCentered("Controls:", 10);
+        TextCentered("W - Up        1 - Third person camera", 10);
+        TextCentered("S - Down      2 - First person camera", 10);
+        TextCentered("A - Left      3 - Static camera      ", 10);
+        TextCentered("D - Right     ESC - Pause game       ", 10);
+
+        TextCentered("Catch the ball!", 30);
+        TextCentered("The faster you catch it, the more points you get", 10);
+
+        cursorCentered("Start Level", 10);
+        if (ImGui::Button("Start Level"))
+        {
+            gameState = GameState::MidLevel;
+            animate = true;
+            startLevel(1);
+        }
+        break;
+    }
+    case GameState::Level2:
+    {
+        float window_width = 400;
+        float window_height = 250;
+        ImGui::SetWindowPos(ImVec2((DISPLAY_WIDTH - window_width) / 2, (DISPLAY_HEIGHT - window_height) / 2), ImGuiCond_Always);
+        ImGui::SetWindowSize(ImVec2(window_width, window_height));
+
+        TextCentered("Level 2", 30);
+
+        TextCentered("Catch the ball!", 30);
+        TextCentered("The faster you catch it, the more points you get", 10);
+        TextCentered("Dodge the moving boxes", 10);
+
+        cursorCentered("Start Level", 20);
+        if (ImGui::Button("Start Level"))
+        {
+            gameState = GameState::MidLevel;
+            animate = true;
+            startLevel(2);
+        }
+        break;
+    }
+    case GameState::Level3:
+    {
+        float window_width = 400;
+        float window_height = 250;
+        ImGui::SetWindowPos(ImVec2((DISPLAY_WIDTH - window_width) / 2, (DISPLAY_HEIGHT - window_height) / 2), ImGuiCond_Always);
+        ImGui::SetWindowSize(ImVec2(window_width, window_height));
+
+        TextCentered("Level 3", 30);
+
+        TextCentered("Catch the ball!", 30);
+        TextCentered("The faster you catch it, the more points you get", 10);
+        TextCentered("Dodge the moving boxes", 10);
+        TextCentered("Snake grows the more you eat", 10);
+
+        cursorCentered("Start Level", 15);
+        if (ImGui::Button("Start Level"))
+        {
+            gameState = GameState::MidLevel;
+            animate = true;
+            startLevel(3);
         }
         break;
     }
@@ -299,63 +422,85 @@ void BasicScene::BuildImGui()
                 ImGui::PopStyleColor();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Center"))
-            camera->SetTout(Eigen::Affine3f::Identity());
         ImGui::Text("AXES: X-RED Y-GREEN Z-BLUE");
-        if (pickedModel)
-        {
-            ImGui::Text("Picked model: %s", pickedModel->name.c_str());
-            ImGui::SameLine();
-            if (ImGui::Button("Drop"))
-                pickedModel = nullptr;
-            if (pickedModel)
-            {
-                if (ImGui::CollapsingHeader("Draw options", ImGuiTreeNodeFlags_DefaultOpen))
-                {
-                    ImGui::Checkbox("Show wireframe", &pickedModel->showWireframe);
-                    if (pickedModel->showWireframe)
-                    {
-                        ImGui::Text("Wireframe color:");
-                        ImGui::SameLine();
-                        ImGui::ColorEdit4("Wireframe color", pickedModel->wireframeColor.data(), ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
-                    }
-                    ImGui::Checkbox("Show faces", &pickedModel->showFaces);
-                    ImGui::Checkbox("Show textures", &pickedModel->showTextures);
-                    if (ImGui::Button("Scale down"))
-                        pickedModel->Scale(0.9f);
-                    ImGui::SameLine();
-                    if (ImGui::Button("Scale up"))
-                        pickedModel->Scale(1.1f);
-                }
-                if (ImGui::Button("Dump model transformations"))
-                {
-                    Eigen::IOFormat format(2, 0, ", ", "\n", "[", "]");
-                    const Eigen::Matrix4f &transform = pickedModel->GetAggregatedTransform();
-                    std::cout << "Tin:" << std::endl
-                              << pickedModel->Tin.matrix().format(format) << std::endl
-                              << "Tout:" << std::endl
-                              << pickedModel->Tout.matrix().format(format) << std::endl
-                              << "Transform:" << std::endl
-                              << transform.matrix().format(format) << std::endl
-                              << "--- Transform Breakdown ---" << std::endl
-                              << "Rotation:" << std::endl
-                              << Movable::GetTranslation(transform).matrix().format(format) << std::endl
-                              << "Translation:" << std::endl
-                              << Movable::GetRotation(transform).matrix().format(format) << std::endl
-                              << "Rotation x Translation:" << std::endl
-                              << Movable::GetTranslationRotation(transform).matrix().format(format)
-                              << std::endl
-                              << "Scaling:" << std::endl
-                              << Movable::GetScaling(transform).matrix().format(format) << std::endl;
-                }
-            }
-        }
         break;
     }
     case GameState::AfterLevel:
     {
-        ImGui::SetWindowPos(ImVec2(0, 0), ImGuiCond_Always);
-        ImGui::SetWindowSize(ImVec2(0, 0), ImGuiCond_Always);
+        float window_width = 300;
+        float window_height = 300;
+        ImGui::SetWindowPos(ImVec2((DISPLAY_WIDTH - window_width) / 2, (DISPLAY_HEIGHT - window_height) / 2), ImGuiCond_Always);
+        ImGui::SetWindowSize(ImVec2(window_width, window_height));
+
+        TextCentered("GAME OVER", 30);
+        std::string scoreStr = "Score: ";
+        scoreStr = scoreStr + std::to_string(levelScore);
+        TextCentered(scoreStr.c_str(), 30);
+        
+        cursorCentered("Restart Level", 30);
+        if (ImGui::Button("Restart Level"))
+        {
+            gameState = GameState::MidLevel;
+            animate = true;
+            startLevel(playingLevel);
+        }
+        cursorCentered("Next Level", 20);
+        if (ImGui::Button("Next Level"))
+        {
+            changeNextLevel();
+        }
+        cursorCentered("Quit Game", 20);
+        if (ImGui::Button("Quit Game"))
+        {
+            exit(0);
+        }
+        break;
+    }
+    case GameState::Pause:
+    {
+        float window_width = 380;
+        float window_height = 320;
+        ImGui::SetWindowPos(ImVec2((DISPLAY_WIDTH - window_width) / 2, (DISPLAY_HEIGHT - window_height) / 2), ImGuiCond_Always);
+        ImGui::SetWindowSize(ImVec2(window_width, window_height));
+
+        TextCentered("PAUSED", 30);
+        std::string scoreStr = "Current Score: ";
+        scoreStr = scoreStr + std::to_string(levelScore);
+        TextCentered(scoreStr.c_str(), 30);
+        TextCentered("Controls:", 10);
+        TextCentered("W - Up        1 - Third person camera", 10);
+        TextCentered("S - Down      2 - First person camera", 10);
+        TextCentered("A - Left      3 - Static camera      ", 10);
+        TextCentered("D - Right     ESC - Pause game       ", 10);
+
+        auto restY = ImGui::GetCursorPosY();
+        ImGui::SetCursorPosX(60);
+        ImGui::SetCursorPosY(restY + 20);
+        if (ImGui::Button("Next Level"))
+        {
+            changeNextLevel();
+        }
+        cursorCentered("Resume");
+        ImGui::SetCursorPosY(restY + 20);
+        if (ImGui::Button("Restart"))
+        {
+            gameState = GameState::MidLevel;
+            animate = true;
+            startLevel(playingLevel);
+        }
+        ImGui::SetCursorPosX(260);
+        ImGui::SetCursorPosY(restY + 20);
+        if (ImGui::Button("Resume"))
+        {
+            gameState = GameState::MidLevel;
+            animate = true;
+        }
+        
+        cursorCentered("Quit Game", 10);
+        if (ImGui::Button("Quit Game"))
+        {
+            exit(0);
+        }
         break;
     }
     default:

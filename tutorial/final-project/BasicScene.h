@@ -14,9 +14,13 @@ class BasicScene : public cg3d::SceneWithImGui
 public:
     enum GameState
     {
-        Menu,
+        StartMenu,
+        Level1,
+        Level2,
+        Level3,
         MidLevel,
         AfterLevel,
+        Pause
     };
 
     explicit BasicScene(std::string name, cg3d::Display *display) : SceneWithImGui(std::move(name), display)
@@ -41,9 +45,11 @@ private:
     void CheckSnakeCollisions();
     int DISPLAY_WIDTH = 0;
     int DISPLAY_HEIGHT = 0;
-    GameState gameState = GameState::Menu;
+    GameState gameState = GameState::StartMenu;
     cg3d::Viewport *viewport = nullptr;
     void SetCamera(int index);
+    void startLevel(int level);
+    void changeNextLevel();
     void BuildImGui() override;
     std::vector<std::shared_ptr<cg3d::Camera>> camList;
     std::vector<std::shared_ptr<cg3d::Model>> axis, axis1;
@@ -55,6 +61,8 @@ private:
     int picked_index = 0;
     int counter = 0;
     float delta = 0.05;
+    int playingLevel = 0;
+    int levelScore = 0;
 
     int lastx = -1, lasty = -1;
     Eigen::Affine3f otherPickedToutAtPress;
