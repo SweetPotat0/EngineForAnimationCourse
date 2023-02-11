@@ -37,24 +37,20 @@ void BasicScene::CheckSnakeCollisions()
     size_t pointsSize = points.size();
     for (size_t i = 0; i < pointsSize; i++)
     {
-        // std::cout << "Checking collision with point " << i << std::endl;
         auto point = points[i];
         auto collidingOBB = links[links.size() - 1]->getCollidingOBB(point);
-        // std::cout << collidingOBB << std::endl;
         if (collidingOBB != NULL)
         {
             // Hit
-            // free(collidingOBB);
+            free(collidingOBB);
             std::cout << "You hit! Earned " << point->Score << " points!" << std::endl;
-            animate = false;
             points.erase(points.begin() + i);
             i--;
             pointsSize--;
             // Remove from scene
-            std::cout << "Before if" << std::endl;
+            // !Problem!: takes allot of time, maybe just make invisible somehow
             if (auto p = point->Model->parent.lock())
             {
-                std::cout << "After if" << std::endl;
                 p->RemoveChild(point->Model);
             }
         }

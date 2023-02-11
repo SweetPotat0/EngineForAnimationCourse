@@ -89,7 +89,6 @@ OBB **Collidable::getCollidingOBB(igl::AABB<Eigen::MatrixXd, 3> *tree1, igl::AAB
 
     if (obb1->IsCollision(*obb2))
     {
-        // std::cout << "aBOUT TO" << std::endl;
         if (tree1->is_leaf() && tree2->is_leaf())
         {
             OBB **arr = (OBB **)malloc(sizeof(OBB *) * 2);
@@ -165,7 +164,6 @@ OBB **Collidable::getCollidingOBB(igl::AABB<Eigen::MatrixXd, 3> *tree1, igl::AAB
     }
     else
     {
-        // std::cout << "Not colliding" << std::endl;
         return NULL;
     }
 }
