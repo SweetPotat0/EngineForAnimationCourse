@@ -1,24 +1,31 @@
 #include "./OBB.h"
 
-OBB::OBB(Eigen::AlignedBox3d box, std::shared_ptr<cg3d::Model> model)
+OBB::OBB(Eigen::AlignedBox3d box, std::shared_ptr<cg3d::Model> model) : OBB(box, model, TransformType::Global)
 {
+}
+
+OBB::OBB(Eigen::AlignedBox3d box, std::shared_ptr<cg3d::Model> model, TransformType transform_type)
+{
+    Eigen::Matrix4f model_transform = transform_type == TransformType::Global ? model->GetAggregatedTransform() : model->GetTransform();
     Eigen::Vector3f c = box.center().cast<float>();
-    Eigen::Vector4f tc = model->GetTransform() * Eigen::Vector4f{c[0], c[1], c[2], 1};
+    Eigen::Vector4f tc = model_transform * Eigen::Vector4f{c[0], c[1], c[2], 1};
     this->Pos = {tc[0], tc[1], tc[2]};
     this->Half_size = box.sizes().cast<float>() / 2.0;
-    auto b = model->GetScaling(model->GetTransform());
+    auto b = model->GetScaling(model_transform);
     this->Half_size = b * this->Half_size;
-    auto a = model->GetRotation();
+    auto a = model->GetRotation(model_transform).rotation();
     this->AxisX = a.col(0);
     this->AxisY = a.col(1);
     this->AxisZ = a.col(2);
 }
 
-OBB::~OBB(){
-    int i=0;
+OBB::~OBB()
+{
+    int i = 0;
 }
 
-OBB::OBB(OBB& other){
+OBB::OBB(OBB &other)
+{
     this->AxisX = other.AxisX;
     this->AxisY = other.AxisY;
     this->AxisZ = other.AxisZ;
@@ -26,7 +33,7 @@ OBB::OBB(OBB& other){
     this->Pos = other.Pos;
 }
 
-bool getSeparatingPlane(const Eigen::Vector3f &RPos, const Eigen::Vector3f &Plane, const OBB& box1, const OBB& box2)
+bool getSeparatingPlane(const Eigen::Vector3f &RPos, const Eigen::Vector3f &Plane, const OBB &box1, const OBB &box2)
 {
     return (fabs(RPos.dot(Plane)) >
             (fabs((box1.AxisX * box1.Half_size.x()).dot(Plane)) +
@@ -37,7 +44,7 @@ bool getSeparatingPlane(const Eigen::Vector3f &RPos, const Eigen::Vector3f &Plan
              fabs((box2.AxisZ * box2.Half_size.z()).dot(Plane))));
 }
 
-bool OBB::IsCollision(const OBB& other)
+bool OBB::IsCollision(const OBB &other)
 {
     Eigen::Vector3f RPos;
     RPos = other.Pos - this->Pos;

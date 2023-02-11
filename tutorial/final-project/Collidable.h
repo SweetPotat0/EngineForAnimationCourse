@@ -10,7 +10,7 @@ class Collidable
 public:
     Collidable(std::shared_ptr<cg3d::Model> model);
     void ReCalculateCollidingTree();
-    OBB *GetColliderOBB();
+    OBB *GetColliderOBB(OBB::TransformType transform_type);
     OBB** getCollidingOBB(std::shared_ptr<Collidable> other);
     std::shared_ptr<cg3d::Model> Model;
     void ShowCollider();

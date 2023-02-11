@@ -34,11 +34,12 @@ void BasicScene::animation()
 
 void BasicScene::CheckSnakeCollisions()
 {
-    for (size_t i = 0; i < points.size(); i++)
+    size_t pointsSize = points.size();
+    for (size_t i = 0; i < pointsSize; i++)
     {
         // std::cout << "Checking collision with point " << i << std::endl;
         auto point = points[i];
-        auto collidingOBB = links[0]->getCollidingOBB(point);
+        auto collidingOBB = links[links.size() - 1]->getCollidingOBB(point);
         // std::cout << collidingOBB << std::endl;
         if (collidingOBB != NULL)
         {
@@ -46,6 +47,16 @@ void BasicScene::CheckSnakeCollisions()
             // free(collidingOBB);
             std::cout << "You hit! Earned " << point->Score << " points!" << std::endl;
             animate = false;
+            points.erase(points.begin() + i);
+            i--;
+            pointsSize--;
+            // Remove from scene
+            std::cout << "Before if" << std::endl;
+            if (auto p = point->Model->parent.lock())
+            {
+                std::cout << "After if" << std::endl;
+                p->RemoveChild(point->Model);
+            }
         }
     }
 }
@@ -387,7 +398,7 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     sceneRoot = cg3d::Model::Create("sroot", sphereMesh, material);
     sceneRoot->isHidden = true;
     AddChild(sceneRoot);
-    // sceneRoot->AddChild(Model::Create("sceneRoot axis", coordsys, axis_material));
+    // sceneRoot->AddChild(Model::Create("sceneRoot axis", coordsys, axis_material)); //Scene root has bugs for some reasons
 
     root = cg3d::Model::Create("root", sphereMesh, material);
     root->isHidden = true;
@@ -470,50 +481,12 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
 
     // Static Camera above
     camList[2]->SetTout(links[linksCount - 1]->Model->GetTout());
-    camList[2]->Translate(20, Scene::Axis::Z);
-    camList[2]->Translate(3, Scene::Axis::Y);
+    camList[2]->RotateByDegree(-90, Scene::Axis::X);
+    camList[2]->Translate(-5, Scene::Axis::Z);
+    camList[2]->Translate(20, Scene::Axis::Y);
 
     links[links.size() - 1]->ShowCollider();
     points[0]->ShowCollider();
-}
-void BasicScene::CCD()
-{
-    if (pause)
-        return;
-    if ((getTipOfLink(-1) - sphere->GetTranslation()).norm() > links.size() * 1.6)
-    {
-        std::cout << "cannot reach" << std::endl;
-        return;
-    }
-
-    static int link_index = links.size();
-    Eigen::Vector3f E, R, RD, RE;
-    static float angle = 0;
-    static int count = 99;
-    static Eigen::Vector3f rotateAxis{0, 0, 0};
-    if (++count == 100)
-    {
-        link_index--;
-        if (link_index == -1)
-        {
-            link_index = links.size() - 1;
-        }
-        E = getTipOfLink(links.size() - 1);
-        R = getTipOfLink(link_index - 1);
-        RD = (sphere->GetTranslation() - R).normalized();
-        RE = (E - R).normalized();
-        angle = acos(std::clamp(RD.dot(RE), -1.0f, 1.0f));
-        rotateAxis = (RE.cross(RD)).normalized();
-        count = 0;
-    }
-
-    links[link_index]->Model->RotateInSystem(axis[link_index]->GetRotation(), angle * 0.01f, rotateAxis);
-
-    if ((getTipOfLink(links.size() - 1) - sphere->GetTranslation()).norm() < delta)
-    {
-        pause = true;
-        std::cout << "reached, distance to destination is: " << (getTipOfLink(links.size() - 1) - sphere->GetTranslation()).norm() << std::endl;
-    }
 }
 
 void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, const Eigen::Matrix4f &view, const Eigen::Matrix4f &model)

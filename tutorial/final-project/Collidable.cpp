@@ -35,6 +35,7 @@ void Collidable::ShowCollider()
     {
         if (auto modelParent = this->Model->parent.lock())
         {
+            std::cout << "Success showing collider" << std::endl;
             modelParent->AddChild(this->collider);
         }
         else
@@ -44,7 +45,7 @@ void Collidable::ShowCollider()
         }
     }
 
-    auto box = GetColliderOBB();
+    auto box = GetColliderOBB(OBB::TransformType::Local);
 
     collider->isHidden = false;
     collider->Translate(-oldT1);
@@ -75,9 +76,9 @@ void safeFree(void *p)
     }
 }
 
-OBB *Collidable::GetColliderOBB()
+OBB *Collidable::GetColliderOBB(OBB::TransformType transform_type)
 {
-    return new OBB(this->collisionTree->m_box, this->Model);
+    return new OBB(this->collisionTree->m_box, this->Model, transform_type);
 }
 
 OBB **Collidable::getCollidingOBB(igl::AABB<Eigen::MatrixXd, 3> *tree1, igl::AABB<Eigen::MatrixXd, 3> *tree2,
@@ -171,9 +172,5 @@ OBB **Collidable::getCollidingOBB(igl::AABB<Eigen::MatrixXd, 3> *tree1, igl::AAB
 
 OBB **Collidable::getCollidingOBB(std::shared_ptr<Collidable> other)
 {
-    if (collisionTree == NULL || collisionTree->m_left == NULL || other->collisionTree == NULL || other->collisionTree->m_left == NULL)
-    {
-        int i = 0;
-    }
     return getCollidingOBB(this->collisionTree.get(), other->collisionTree.get(), this->Model, other->Model);
 }
