@@ -26,12 +26,30 @@ using namespace cg3d;
 
 void BasicScene::animation()
 {
-    std::cout << "System: " << std::endl;
-    std::cout << Eigen::Affine3f(links[3]->GetAggregatedTransform()).rotation() << std::endl;
+    Eigen::MatrixX3f system = Eigen::Affine3f(links[3]->Model->GetAggregatedTransform()).rotation().transpose();
+    links[0]->Model->TranslateInSystem(system, Eigen::Vector3f(0.01f, 0, 0));
 
-    Eigen::MatrixX3f system = Eigen::Affine3f(links[3]->GetAggregatedTransform()).rotation().transpose();
-    links[0]->TranslateInSystem(system, Eigen::Vector3f(0.01f, 0, 0));
+    CheckSnakeCollisions();
 }
+
+void BasicScene::CheckSnakeCollisions()
+{
+    for (size_t i = 0; i < points.size(); i++)
+    {
+        // std::cout << "Checking collision with point " << i << std::endl;
+        auto point = points[i];
+        auto collidingOBB = links[0]->getCollidingOBB(point.get());
+        // std::cout << collidingOBB << std::endl;
+        if (collidingOBB != NULL)
+        {
+            // Hit
+            // free(collidingOBB);
+            std::cout << "You hit! Earned " << point->Score << " points!" << std::endl;
+            animate = false;
+        }
+    }
+}
+
 void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, int scancode, int action, int mods)
 {
     auto system = camList[1]->GetRotation().transpose();
@@ -53,19 +71,19 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
             break;
         case GLFW_KEY_W:
             // links[0]->Rotate(0.1, Axis::X);
-            links[3]->RotateInSystem(system, 0.1, Axis::X);
+            links[3]->Model->RotateInSystem(system, 0.1, Axis::X);
             break;
         case GLFW_KEY_S:
             // links[0]->Rotate(-0.1, Axis::X);
-            links[3]->RotateInSystem(system, -0.1, Axis::X);
+            links[3]->Model->RotateInSystem(system, -0.1, Axis::X);
             break;
         case GLFW_KEY_A:
             // links[picked_index]->Rotate(-0.1,Axis::Z);
-            links[3]->RotateInSystem(system, -0.1, Axis::Z);
+            links[3]->Model->RotateInSystem(system, -0.1, Axis::Z);
             break;
         case GLFW_KEY_D:
             // links[picked_index]->Rotate(0.1,Axis::Z);
-            links[3]->RotateInSystem(system, 0.1, Axis::Z);
+            links[3]->Model->RotateInSystem(system, 0.1, Axis::Z);
             break;
         }
     }
@@ -196,7 +214,7 @@ Eigen::Vector3f BasicScene::getTipOfLink(int ind)
     Eigen::Vector3f pos = std::move(root->GetTranslation());
     for (int i = 0; i <= ind; i++)
     {
-        pos += links[i]->GetRotation() * Eigen::Vector3f{0, 0, 1.6f};
+        pos += links[i]->Model->GetRotation() * Eigen::Vector3f{0, 0, 1.6f};
     }
     return pos;
 }
@@ -397,61 +415,66 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     sceneRoot->AddChild(sphere);
     sphere->Translate(Eigen::Vector3f{5, 0, 0});
 
+    points.push_back(std::make_shared<SnakePoint>(sphere, 10));
+
     axis.push_back(Model::Create("root axis", coordsys, axis_material));
     axis[0]->mode = 1;
     root->AddChild(axis[0]);
     axis[0]->SetTout(Eigen::Affine3f::Identity());
     axis[0]->modelOnPick = root;
 
-    links.push_back(cg3d::Model::Create("link 0", cylMesh, material));
-    links[0]->showWireframe = true;
-    links[0]->Translate(0.8f, Axis::Z);
-    links[0]->SetCenter(Eigen::Vector3f(0, 0, -0.8));
-    root->AddChild(links[0]);
+    links.push_back(std::make_shared<Collidable>(cg3d::Model::Create("link 0", cylMesh, material).get()));
+    links[0]->Model->showWireframe = true;
+    links[0]->Model->Translate(0.8f, Axis::Z);
+    links[0]->Model->SetCenter(Eigen::Vector3f(0, 0, -0.8));
+    root->AddChild(std::make_shared<cg3d::Model>(links[0]->Model));
 
-    int linksCount = 4;
+    // int linksCount = 4;
 
-    for (size_t i = 1; i < linksCount; i++)
-    {
-        links.push_back(cg3d::Model::Create("link " + std::to_string(i), cylMesh, material));
-        links[i]->showWireframe = true;
-        links[i]->Translate(1.6f, Axis::Z);
-        links[i]->SetCenter(Eigen::Vector3f(0, 0, -0.8));
-        links[i - 1]->AddChild(links[i]);
+    // for (size_t i = 1; i < linksCount; i++)
+    // {
+    //     links.push_back(std::make_shared<Collidable>(cg3d::Model::Create("link " + std::to_string(i), cylMesh, material).get()));
+    //     links[i]->Model->showWireframe = true;
+    //     links[i]->Model->Translate(1.6f, Axis::Z);
+    //     links[i]->Model->SetCenter(Eigen::Vector3f(0, 0, -0.8));
+    //     links[i - 1]->Model->AddChild(std::make_shared<cg3d::Model>(links[i]->Model));
 
-        axis.push_back(Model::Create("axis of link " + std::to_string(i - 1), coordsys, axis_material));
-        axis[i]->mode = 1;
-        links[i - 1]->AddChild(axis[i]);
-        axis[i]->SetTout(Eigen::Affine3f::Identity());
-    }
+    //     axis.push_back(Model::Create("axis of link " + std::to_string(i - 1), coordsys, axis_material));
+    //     axis[i]->mode = 1;
+    //     links[i - 1]->Model->AddChild(axis[i]);
+    //     axis[i]->SetTout(Eigen::Affine3f::Identity());
+    // }
 
-    axis.push_back(Model::Create("axis of link " + std::to_string(linksCount - 1), coordsys, axis_material));
-    axis[linksCount]->mode = 1;
-    links[linksCount - 1]->AddChild(axis[linksCount]);
-    axis[linksCount]->SetTout(Eigen::Affine3f::Identity());
+    // axis.push_back(Model::Create("axis of link " + std::to_string(linksCount - 1), coordsys, axis_material));
+    // axis[linksCount]->mode = 1;
+    // links[linksCount - 1]->Model->AddChild(axis[linksCount]);
+    // axis[linksCount]->SetTout(Eigen::Affine3f::Identity());
 
-    links[linksCount - 1]->AddChild(camList[0]);
-    links[linksCount - 1]->AddChild(camList[1]);
+    // links[linksCount - 1]->Model->AddChild(camList[0]);
+    // links[linksCount - 1]->Model->AddChild(camList[1]);
 
-    // links[0]->RotateByDegree(-90, Axis::X);
-    // axis[0]->RotateByDegree(-90, Axis::X);
-    sceneRoot->RotateByDegree(-90, Axis::X);
+    // // links[0]->RotateByDegree(-90, Axis::X);
+    // // axis[0]->RotateByDegree(-90, Axis::X);
+    // sceneRoot->RotateByDegree(-90, Axis::X);
 
-    // Third Person
-    camList[0]->Translate(-10, Axis::Z);
-    camList[0]->Translate(-5, Axis::Y);
-    camList[0]->RotateByDegree(158.5, Eigen::Vector3f(1, 0, 0));
+    // // Third Person
+    // camList[0]->Translate(-10, Axis::Z);
+    // camList[0]->Translate(-5, Axis::Y);
+    // camList[0]->RotateByDegree(158.5, Eigen::Vector3f(1, 0, 0));
 
-    float firstPersonOffset = 1;
-    // First Person
-    camList[1]->SetTout(Eigen::Affine3f::Identity());
-    camList[1]->Translate(firstPersonOffset, Axis::Z);
-    camList[1]->RotateByDegree(180, Eigen::Vector3f(1, 0, 0));
+    // float firstPersonOffset = 1;
+    // // First Person
+    // camList[1]->SetTout(Eigen::Affine3f::Identity());
+    // camList[1]->Translate(firstPersonOffset, Axis::Z);
+    // camList[1]->RotateByDegree(180, Eigen::Vector3f(1, 0, 0));
 
-    // Static Camera above
-    camList[2]->SetTout(links[linksCount - 1]->GetTout());
-    camList[2]->Translate(20, Scene::Axis::Z);
-    camList[2]->Translate(3, Scene::Axis::Y);
+    // // Static Camera above
+    // camList[2]->SetTout(links[linksCount - 1]->Model->GetTout());
+    // camList[2]->Translate(20, Scene::Axis::Z);
+    // camList[2]->Translate(3, Scene::Axis::Y);
+
+    // links[links.size() - 1]->ShowCollider();
+    // points[0]->ShowCollider();
 }
 void BasicScene::CCD()
 {
@@ -484,7 +507,7 @@ void BasicScene::CCD()
         count = 0;
     }
 
-    links[link_index]->RotateInSystem(axis[link_index]->GetRotation(), angle * 0.01f, rotateAxis);
+    links[link_index]->Model->RotateInSystem(axis[link_index]->GetRotation(), angle * 0.01f, rotateAxis);
 
     if ((getTipOfLink(links.size() - 1) - sphere->GetTranslation()).norm() < delta)
     {

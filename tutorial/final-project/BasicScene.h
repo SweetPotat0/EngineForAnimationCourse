@@ -5,7 +5,9 @@
 #include "imgui.h"
 #include "file_dialog_open.h"
 #include "GLFW/glfw3.h"
+#include "igl/AABB.h"
 #include <utility>
+#include "./SnakePoint.h"
 
 class BasicScene : public cg3d::SceneWithImGui
 {
@@ -36,6 +38,7 @@ public:
     Eigen::Vector3f getTipOfLink(int ind);
 
 private:
+    void CheckSnakeCollisions();
     int DISPLAY_WIDTH = 0;
     int DISPLAY_HEIGHT = 0;
     GameState gameState = GameState::Menu;
@@ -43,8 +46,11 @@ private:
     void SetCamera(int index);
     void BuildImGui() override;
     std::vector<std::shared_ptr<cg3d::Camera>> camList;
-    std::vector<std::shared_ptr<cg3d::Model>> links, axis, axis1;
+    std::vector<std::shared_ptr<cg3d::Model>> axis, axis1;
+    std::vector<std::shared_ptr<Collidable>> links;
     std::shared_ptr<cg3d::Model> sphere, root, sceneRoot;
+    igl::AABB<Eigen::MatrixXd,3> treeSnakeHead;
+    std::vector<std::shared_ptr<SnakePoint>> points;
     bool pause = true;
     int picked_index = 0;
     int counter = 0;
