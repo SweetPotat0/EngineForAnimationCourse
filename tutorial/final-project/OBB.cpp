@@ -1,6 +1,6 @@
 #include "./OBB.h"
 
-OBB::OBB(Eigen::AlignedBox3d box, cg3d::Model* model)
+OBB::OBB(Eigen::AlignedBox3d box, std::shared_ptr<cg3d::Model> model)
 {
     Eigen::Vector3f c = box.center().cast<float>();
     Eigen::Vector4f tc = model->GetTransform() * Eigen::Vector4f{c[0], c[1], c[2], 1};

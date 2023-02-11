@@ -1,12 +1,13 @@
 #include "./Collidable.h"
 #include "./OBB.h"
 
-cg3d::MeshData GetLastMesh(cg3d::Model *cyl)
+cg3d::MeshData GetLastMesh(std::shared_ptr<cg3d::Model> cyl)
 {
     return cyl->GetMeshList()[0]->data.back();
 }
 
-Collidable::Collidable(cg3d::Model *Model) : Model(Model), collisionTree((igl::AABB<Eigen::MatrixXd, 3> *)malloc(sizeof(igl::AABB<Eigen::MatrixXd, 3>))), oldT1(0, 0, 0), oldS1(1, 1, 1)
+Collidable::Collidable(std::shared_ptr<cg3d::Model> Model) : Model(Model), collisionTree(std::make_shared<igl::AABB<Eigen::MatrixXd, 3>>()),
+                                                             oldT1(0, 0, 0), oldS1(1, 1, 1)
 {
     static auto colliderProgram = std::make_shared<cg3d::Program>("shaders/basicShader");
     static auto colliderMaterial = std::make_shared<cg3d::Material>("collider material", colliderProgram);
@@ -80,7 +81,7 @@ OBB *Collidable::GetColliderOBB()
 }
 
 OBB **Collidable::getCollidingOBB(igl::AABB<Eigen::MatrixXd, 3> *tree1, igl::AABB<Eigen::MatrixXd, 3> *tree2,
-                                  cg3d::Model *model1, cg3d::Model *model2)
+                                  std::shared_ptr<cg3d::Model> model1, std::shared_ptr<cg3d::Model> model2)
 {
     OBB *obb1 = new OBB(tree1->m_box, model1);
     OBB *obb2 = new OBB(tree2->m_box, model2);
@@ -168,11 +169,11 @@ OBB **Collidable::getCollidingOBB(igl::AABB<Eigen::MatrixXd, 3> *tree1, igl::AAB
     }
 }
 
-OBB **Collidable::getCollidingOBB(Collidable* other)
+OBB **Collidable::getCollidingOBB(std::shared_ptr<Collidable> other)
 {
     if (collisionTree == NULL || collisionTree->m_left == NULL || other->collisionTree == NULL || other->collisionTree->m_left == NULL)
     {
         int i = 0;
     }
-    return getCollidingOBB(this->collisionTree, other->collisionTree, this->Model, other->Model);
+    return getCollidingOBB(this->collisionTree.get(), other->collisionTree.get(), this->Model, other->Model);
 }
