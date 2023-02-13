@@ -3,6 +3,7 @@
 #include "SceneWithImGui.h"
 
 #include "imgui.h"
+#include "Camera.h"
 #include "file_dialog_open.h"
 #include "GLFW/glfw3.h"
 #include "igl/AABB.h"
@@ -47,6 +48,7 @@ private:
     int DISPLAY_HEIGHT = 0;
     GameState gameState = GameState::StartMenu;
     cg3d::Viewport *viewport = nullptr;
+    Eigen::Vector3f GenerateRandomPoint(std::shared_ptr<cg3d::Camera> camera, float near, float far);
     void SetCamera(int index);
     void startLevel(int level);
     void changeNextLevel();
@@ -57,12 +59,14 @@ private:
     std::shared_ptr<cg3d::Model> sphere, root, sceneRoot;
     igl::AABB<Eigen::MatrixXd,3> treeSnakeHead;
     std::vector<std::shared_ptr<SnakePoint>> points;
-    bool pause = true;
+    bool paused = true;
     int picked_index = 0;
     int counter = 0;
     float delta = 0.05;
     int playingLevel = 0;
     int levelScore = 0;
+    float movementSpeed = 0.01f;
+    Eigen::Vector3f sphereMaxPos = {7.5,5,3};
 
     int lastx = -1, lasty = -1;
     Eigen::Affine3f otherPickedToutAtPress;

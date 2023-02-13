@@ -1,6 +1,10 @@
+#define _USE_MATH_DEFINES
+
 #include "./BasicScene.h"
 #include <read_triangle_mesh.h>
 #include <utility>
+#include <cmath>
+#include <random>
 
 #include "ObjLoader.h"
 // #include "AutoMorphingModel.h"
@@ -27,7 +31,7 @@ using namespace cg3d;
 void BasicScene::animation()
 {
     Eigen::MatrixX3f system = Eigen::Affine3f(links[3]->Model->GetAggregatedTransform()).rotation().transpose();
-    links[0]->Model->TranslateInSystem(system, Eigen::Vector3f(0.01f, 0, 0));
+    links[0]->Model->TranslateInSystem(system, Eigen::Vector3f(movementSpeed, 0, 0));
 
     CheckSnakeCollisions();
 }
@@ -47,12 +51,21 @@ void BasicScene::CheckSnakeCollisions()
             points.erase(points.begin() + i);
             i--;
             pointsSize--;
+            if (playingLevel == 1){
+                sphere->SetTout(Eigen::Affine3f::Identity());
+                auto newPoint = GenerateRandomPoint(camList[2],5,35);
+                sphere->Translate(newPoint);
+                float score4Point = (newPoint - links[links.size() - 1]->Model->GetTranslation()).norm();
+
+                points.push_back(std::make_shared<SnakePoint>(sphere, score4Point));
+            }
+            
             // Remove from scene
             // !Problem!: takes allot of time, maybe just make invisible somehow
-            if (auto p = point->Model->parent.lock())
-            {
-                p->RemoveChild(point->Model);
-            }
+            // if (auto p = point->Model->parent.lock())
+            // {
+            //     p->RemoveChild(point->Model);
+            // }
         }
     }
 }
@@ -60,8 +73,9 @@ void BasicScene::CheckSnakeCollisions()
 void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, int scancode, int action, int mods)
 {
     auto system = camList[1]->GetRotation().transpose();
+    // Eigen::Matrix3f system2 = Eigen::Affine3f::Identity();
     Eigen::Vector3f pos, angles;
-    Eigen::Matrix3f A1, A2, A3;
+    Eigen::Vector3f a,b;
 
     if (action == GLFW_PRESS || action == GLFW_REPEAT)
     {
@@ -74,39 +88,64 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
 
         case GLFW_KEY_ESCAPE:
             // open menu
+            paused = true;
             gameState = Pause;
             animate = false;
             break;
         case GLFW_KEY_W:
-            // links[0]->Rotate(0.1, Axis::X);
-            links[3]->Model->RotateInSystem(system, 0.1, Axis::X);
+            if (!paused){
+                // links[0]->Rotate(0.1, Axis::X);
+                links[3]->Model->RotateInSystem(system, 0.1, Axis::X);
+            }
             break;
         case GLFW_KEY_S:
-            // links[0]->Rotate(-0.1, Axis::X);
-            links[3]->Model->RotateInSystem(system, -0.1, Axis::X);
+            if (!paused){
+                // links[0]->Rotate(-0.1, Axis::X);
+                links[3]->Model->RotateInSystem(system, -0.1, Axis::X);
+            }
             break;
         case GLFW_KEY_A:
-            // links[picked_index]->Rotate(-0.1,Axis::Z);
-            links[3]->Model->RotateInSystem(system, -0.1, Axis::Z);
+            if (!paused){
+                // links[picked_index]->Rotate(-0.1,Axis::Z);
+                links[3]->Model->RotateInSystem(system, -0.1, Axis::Z);
+            }
             break;
         case GLFW_KEY_D:
-            // links[picked_index]->Rotate(0.1,Axis::Z);
-            links[3]->Model->RotateInSystem(system, 0.1, Axis::Z);
+            if (!paused){
+                // links[picked_index]->Rotate(0.1,Axis::Z);
+                links[3]->Model->RotateInSystem(system, 0.1, Axis::Z);
+            }
             break;
         case GLFW_KEY_1:
-            gameState = StartMenu;
+            if (!paused)
+                SetCamera(0);
             break;
         case GLFW_KEY_2:
-            gameState = Level1;
+            if (!paused)
+                SetCamera(1);
             break;
         case GLFW_KEY_3:
-            gameState = Level2;
+            if (!paused)
+                SetCamera(2);
             break;
-        case GLFW_KEY_4:
-            gameState = Level3;
+        case GLFW_KEY_UP:
+            sphere->SetTout(Eigen::Affine3f::Identity());
+            a = GenerateRandomPoint(camList[2],5,35);
+            sphere->Translate(a);
+            std::cout << "a position: "<< a.transpose() << std::endl;
+            std::cout << "sphere position: "<< sphere->GetTranslation().transpose() << std::endl;
             break;
-        case GLFW_KEY_5:
-            gameState = AfterLevel;
+        case GLFW_KEY_DOWN:
+            sphere->TranslateInSystem(Eigen::Matrix3f::Identity(3,3),{0,0,-0.1f});
+            std::cout << "sphere position: "<< sphere->GetTranslation().transpose() << std::endl;
+            break;
+        case GLFW_KEY_RIGHT:
+            sphere->Translate({0.1f,0,0});
+            std::cout << "sphere position: "<< sphere->GetTranslation().transpose() << std::endl;
+            break;
+        case GLFW_KEY_LEFT:
+            sphere->Translate({-0.1f,0,0});
+            std::cout << "sphere position: "<< sphere->GetTranslation().transpose() << std::endl;
             break;
         }
         
@@ -299,7 +338,10 @@ void BasicScene::changeNextLevel(){
 void BasicScene::startLevel(int level){
     playingLevel = level;
     levelScore = 0;
-    std::cout << "should start level" << level << std::endl;
+    animate = true;
+    paused = false;
+    gameState = GameState::MidLevel;
+    std::cout << "should start level " << level << std::endl;
 }
 
 void BasicScene::BuildImGui()
@@ -350,11 +392,7 @@ void BasicScene::BuildImGui()
 
         cursorCentered("Start Level", 10);
         if (ImGui::Button("Start Level"))
-        {
-            gameState = GameState::MidLevel;
-            animate = true;
             startLevel(1);
-        }
         break;
     }
     case GameState::Level2:
@@ -372,11 +410,7 @@ void BasicScene::BuildImGui()
 
         cursorCentered("Start Level", 20);
         if (ImGui::Button("Start Level"))
-        {
-            gameState = GameState::MidLevel;
-            animate = true;
             startLevel(2);
-        }
         break;
     }
     case GameState::Level3:
@@ -395,11 +429,7 @@ void BasicScene::BuildImGui()
 
         cursorCentered("Start Level", 15);
         if (ImGui::Button("Start Level"))
-        {
-            gameState = GameState::MidLevel;
-            animate = true;
             startLevel(3);
-        }
         break;
     }
     case GameState::MidLevel:
@@ -525,14 +555,12 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     background->SetStatic();
 
     auto program = std::make_shared<Program>("shaders/basicShader");
-    auto program1 = std::make_shared<Program>("shaders/pickingShader");
-    auto program2 = std::make_shared<Program>("shaders/axisShader");
+    auto program1 = std::make_shared<Program>("shaders/axisShader");
     auto material = std::make_shared<Material>("material", program);
-    auto material1{std::make_shared<Material>("material", program1)};
-    auto axis_material = std::make_shared<Material>("axis-material", program2);
+    auto axis_material = std::make_shared<Material>("axis-material", program1);
     material->AddTexture(0, "textures/box0.bmp", 2);
 
-    auto cylMesh{IglLoader::MeshFromFiles("cyl_igl", "data/snake2.obj")};
+    auto cylMesh{IglLoader::MeshFromFiles("cyl_igl", "data/zcylinder.obj")};
     auto sphereMesh{IglLoader::MeshFromFiles("sphere_igl", "data/sphere.obj")};
     auto coordsys = Mesh::Axis();
 
@@ -561,13 +589,6 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     camList[1]->AddChild(axis1[1]);
 
     sceneRoot->AddChild(root);
-
-    sphere = cg3d::Model::Create("sphere", sphereMesh, material);
-    sphere->showWireframe = true;
-    sceneRoot->AddChild(sphere);
-    sphere->Translate(Eigen::Vector3f{5, 0, 0});
-
-    points.push_back(std::make_shared<SnakePoint>(sphere, 10));
 
     axis.push_back(Model::Create("root axis", coordsys, axis_material));
     axis[0]->mode = 1;
@@ -605,9 +626,9 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     links[linksCount - 1]->Model->AddChild(camList[0]);
     links[linksCount - 1]->Model->AddChild(camList[1]);
 
-    links[0]->Model->RotateByDegree(-90, Axis::X);
-    axis[0]->RotateByDegree(-90, Axis::X);
-    sceneRoot->RotateByDegree(-90, Axis::X);
+    // links[0]->Model->RotateByDegree(-90, Axis::X);
+    // axis[0]->RotateByDegree(-90, Axis::X);
+    // sceneRoot->RotateByDegree(-90, Axis::X);
 
     // Third Person
     camList[0]->Translate(-10, Axis::Z);
@@ -621,11 +642,18 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     camList[1]->RotateByDegree(180, Eigen::Vector3f(1, 0, 0));
 
     // Static Camera above
-    camList[2]->SetTout(links[linksCount - 1]->Model->GetTout());
-    camList[2]->RotateByDegree(-90, Scene::Axis::X);
-    camList[2]->Translate(-5, Scene::Axis::Z);
+    camList[2]->SetTout(Eigen::Affine3f::Identity());
     camList[2]->Translate(20, Scene::Axis::Y);
+    camList[2]->RotateByDegree(-90, Scene::Axis::X);
+    
+    // camList[2]->Translate(20, Scene::Axis::Y);
 
+    sphere = cg3d::Model::Create("sphere", sphereMesh, material);
+    sphere->showWireframe = true;
+    sceneRoot->AddChild(sphere);
+    sphere->Translate(getTipOfLink(links.size() - 1));
+
+    points.push_back(std::make_shared<SnakePoint>(sphere, 0));
     links[links.size() - 1]->ShowCollider();
     points[0]->ShowCollider();
 }
@@ -640,4 +668,28 @@ void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, con
         Eigen::Vector3f position = Eigen::Affine3f(model).translation();
         program.SetUniform3f("root", position.x(), position.y(), position.z());
     }
+}
+
+
+// Generate a random point within the camera's field of view
+Eigen::Vector3f BasicScene::GenerateRandomPoint(std::shared_ptr<cg3d::Camera> camera, float near, float far) {
+    // Define a random number generator
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    // Generate a random point within the frustum defined by the camera's field of view
+    float z = std::uniform_real_distribution<>(near, far)(gen);
+    float x = tan((camera->fov * (M_PI/180)) / 2) * z * camera->ratio;
+    float y = tan((camera->fov * (M_PI/180)) / 2) * z;
+
+    // Generate random x and y values proportional to the tangent of half the field of view and the distance from the camera to the point
+    std::uniform_real_distribution<> dist1(-x, x);
+    x = dist1(gen);
+    std::uniform_real_distribution<> dist2(-y, y);
+    y = dist2(gen);
+    
+
+    // Transform the point from camera space to world space
+    Eigen::Vector3f result = camera->GetTranslation() + camera->GetRotation() * Eigen::Vector3f(x, y, -z);
+    return result;
 }
