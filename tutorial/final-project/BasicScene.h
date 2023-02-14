@@ -9,6 +9,7 @@
 #include "igl/AABB.h"
 #include <utility>
 #include "./SnakePoint.h"
+#include "./Enemy.h"
 
 class BasicScene : public cg3d::SceneWithImGui
 {
@@ -43,7 +44,8 @@ public:
     Eigen::Vector3f getTipOfLink(int ind);
 
 private:
-    void CheckSnakeCollisions();
+    void CheckPointCollisions();
+    void CheckEnemyCollisions();
     int DISPLAY_WIDTH = 0;
     int DISPLAY_HEIGHT = 0;
     GameState gameState = GameState::StartMenu;
@@ -56,9 +58,10 @@ private:
     std::vector<std::shared_ptr<cg3d::Camera>> camList;
     std::vector<std::shared_ptr<cg3d::Model>> axis, axis1;
     std::vector<std::shared_ptr<Collidable>> links;
-    std::shared_ptr<cg3d::Model> sphere, root, sceneRoot;
+    std::shared_ptr<cg3d::Model> bunnyPoint,lionEnemy, root, sceneRoot;
     igl::AABB<Eigen::MatrixXd,3> treeSnakeHead;
     std::vector<std::shared_ptr<SnakePoint>> points;
+    std::vector<std::shared_ptr<Enemy>> enemies;
     bool paused = true;
     int picked_index = 0;
     int counter = 0;

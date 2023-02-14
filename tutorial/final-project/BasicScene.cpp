@@ -31,12 +31,20 @@ using namespace cg3d;
 void BasicScene::animation()
 {
     Eigen::MatrixX3f system = Eigen::Affine3f(links[3]->Model->GetAggregatedTransform()).rotation().transpose();
-    links[0]->Model->TranslateInSystem(system, Eigen::Vector3f(movementSpeed, 0, 0));
-
-    CheckSnakeCollisions();
+    links[0]->Model->TranslateInSystem(system, Eigen::Vector3f(0, 0, movementSpeed));
+    CheckPointCollisions();
+    if (playingLevel == 2)
+    {
+        for (size_t i = 0; i < enemies.size(); i++){
+            if (enemies[i]->ifReachedDest())
+                enemies[i]->destination = GenerateRandomPoint(BasicScene::camList[2],5,35);
+            enemies[i]->moveTowardsDest();
+        }
+        CheckEnemyCollisions();
+    }
 }
 
-void BasicScene::CheckSnakeCollisions()
+void BasicScene::CheckPointCollisions()
 {
     size_t pointsSize = points.size();
     for (size_t i = 0; i < pointsSize; i++)
@@ -48,24 +56,37 @@ void BasicScene::CheckSnakeCollisions()
             // Hit
             free(collidingOBB);
             std::cout << "You hit! Earned " << point->Score << " points!" << std::endl;
+            levelScore += point->Score;
             points.erase(points.begin() + i);
             i--;
             pointsSize--;
-            if (playingLevel == 1){
-                sphere->SetTout(Eigen::Affine3f::Identity());
+            if (playingLevel == 1 || playingLevel == 2){
+                bunnyPoint->SetTout(Eigen::Affine3f::Identity());
                 auto newPoint = GenerateRandomPoint(camList[2],5,35);
-                sphere->Translate(newPoint);
+                bunnyPoint->Translate(newPoint);
                 float score4Point = (newPoint - links[links.size() - 1]->Model->GetTranslation()).norm();
 
-                points.push_back(std::make_shared<SnakePoint>(sphere, score4Point));
+                points.push_back(std::make_shared<SnakePoint>(bunnyPoint, score4Point));
             }
-            
-            // Remove from scene
-            // !Problem!: takes allot of time, maybe just make invisible somehow
-            // if (auto p = point->Model->parent.lock())
-            // {
-            //     p->RemoveChild(point->Model);
-            // }
+        }
+    }
+}
+void BasicScene::CheckEnemyCollisions()
+{
+    bool foundCollision = false;
+    for (size_t i = 0; i < enemies.size() && !foundCollision; i++)
+    {
+        for (size_t j = 0; j < links.size() && !foundCollision; j++)
+        {
+            auto collidingOBB = links[j]->getCollidingOBB(enemies[i]);
+            if (collidingOBB != NULL){
+                // Hit
+                free(collidingOBB);
+                std::cout << "GAME OVER" << std::endl;
+                gameState = GameState::AfterLevel;
+                animate = false;
+                paused = true;
+            }
         }
     }
 }
@@ -83,7 +104,6 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
         {
         case GLFW_KEY_SPACE:
             animate = !animate;
-            std::cout << camList[1]->GetRotation() << std::endl;
             break;
 
         case GLFW_KEY_ESCAPE:
@@ -129,25 +149,19 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
                 SetCamera(2);
             break;
         case GLFW_KEY_UP:
-            sphere->SetTout(Eigen::Affine3f::Identity());
-            a = GenerateRandomPoint(camList[2],5,35);
-            sphere->Translate(a);
-            std::cout << "a position: "<< a.transpose() << std::endl;
-            std::cout << "sphere position: "<< sphere->GetTranslation().transpose() << std::endl;
-            break;
+        lionEnemy->Translate({0,0,0.5});
+        break;
         case GLFW_KEY_DOWN:
-            sphere->TranslateInSystem(Eigen::Matrix3f::Identity(3,3),{0,0,-0.1f});
-            std::cout << "sphere position: "<< sphere->GetTranslation().transpose() << std::endl;
-            break;
-        case GLFW_KEY_RIGHT:
-            sphere->Translate({0.1f,0,0});
-            std::cout << "sphere position: "<< sphere->GetTranslation().transpose() << std::endl;
-            break;
+        lionEnemy->Translate({0,0,-0.5});
+        break;
         case GLFW_KEY_LEFT:
-            sphere->Translate({-0.1f,0,0});
-            std::cout << "sphere position: "<< sphere->GetTranslation().transpose() << std::endl;
-            break;
+        lionEnemy->Translate({-0.5,0,0});
+        break;
+        case GLFW_KEY_RIGHT:
+        lionEnemy->Translate({0.5,0,0});
+        break;
         }
+        
         
     }
 }
@@ -342,6 +356,39 @@ void BasicScene::startLevel(int level){
     paused = false;
     gameState = GameState::MidLevel;
     std::cout << "should start level " << level << std::endl;
+    switch (level)
+    {
+    case 1:
+        for (size_t i = 0; i < points.size(); i++){// reset points
+            points[i]->Model->isHidden = false;
+            points[i]->Model->SetTout(Eigen::Affine3f::Identity());
+            auto newPoint = GenerateRandomPoint(camList[2],5,35);
+            points[i]->Model->Translate(newPoint);
+            float score4Point = (newPoint - links[links.size() - 1]->Model->GetTranslation()).norm();
+            points[i]->Score = score4Point;
+        }
+        links[0]->Model->Translate(-links[0]->Model->GetTranslation()); // reset snake
+        for (size_t i = 0; i < links.size(); i++)
+            links[i]->Model->Rotate(links[i]->Model->GetRotation().matrix().inverse());
+        break;
+    case 2:
+        for (size_t i = 0; i < points.size(); i++) // reset points
+            points[i]->Model->isHidden = false;
+
+        links[0]->Model->Translate(-links[0]->Model->GetTranslation());// reset snake
+        for (size_t i = 0; i < links.size(); i++)
+            links[i]->Model->Rotate(links[i]->Model->GetRotation().matrix().inverse());
+
+        for (size_t i = 0; i < enemies.size(); i++){ // reset enemies
+            enemies[i]->Model->isHidden = false;
+            enemies[i]->Model->Translate(enemies[i]->startinPosition);
+            enemies[i]->destination = GenerateRandomPoint(BasicScene::camList[2],5,35);
+        }
+        break;
+    
+    default:
+        break;
+    }
 }
 
 void BasicScene::BuildImGui()
@@ -387,7 +434,7 @@ void BasicScene::BuildImGui()
         TextCentered("A - Left      3 - Static camera      ", 10);
         TextCentered("D - Right     ESC - Pause game       ", 10);
 
-        TextCentered("Catch the ball!", 30);
+        TextCentered("Eat the Bunny!", 30);
         TextCentered("The faster you catch it, the more points you get", 10);
 
         cursorCentered("Start Level", 10);
@@ -404,9 +451,9 @@ void BasicScene::BuildImGui()
 
         TextCentered("Level 2", 30);
 
-        TextCentered("Catch the ball!", 30);
+        TextCentered("Eat the Bunny!", 30);
         TextCentered("The faster you catch it, the more points you get", 10);
-        TextCentered("Dodge the moving boxes", 10);
+        TextCentered("Dodge the moving Lions", 10);
 
         cursorCentered("Start Level", 20);
         if (ImGui::Button("Start Level"))
@@ -422,9 +469,9 @@ void BasicScene::BuildImGui()
 
         TextCentered("Level 3", 30);
 
-        TextCentered("Catch the ball!", 30);
+        TextCentered("Eat the Bunny!", 30);
         TextCentered("The faster you catch it, the more points you get", 10);
-        TextCentered("Dodge the moving boxes", 10);
+        TextCentered("Dodge the moving Lions", 10);
         TextCentered("Snake grows the more you eat", 10);
 
         cursorCentered("Start Level", 15);
@@ -436,22 +483,25 @@ void BasicScene::BuildImGui()
     {
         ImGui::SetWindowPos(ImVec2(0, 0), ImGuiCond_Always);
         ImGui::SetWindowSize(ImVec2(0, 0), ImGuiCond_Always);
-        ImGui::Text("Camera: ");
-        for (int i = 0; i < camList.size(); i++)
-        {
-            bool selectedCamera = camList[i] == camera;
-            if (selectedCamera)
-            {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
-            }
-            if (ImGui::Button(camList[i]->name.c_str()))
-            {
-                SetCamera(i);
-            }
-            if (selectedCamera)
-                ImGui::PopStyleColor();
-        }
-        ImGui::SameLine();
+        std::string scoreStr = "Score: ";
+        scoreStr = scoreStr + std::to_string(levelScore);
+        TextCentered(scoreStr.c_str(), 0);
+        // ImGui::Text("Camera: ");
+        // for (int i = 0; i < camList.size(); i++)
+        // {
+        //     bool selectedCamera = camList[i] == camera;
+        //     if (selectedCamera)
+        //     {
+        //         ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+        //     }
+        //     if (ImGui::Button(camList[i]->name.c_str()))
+        //     {
+        //         SetCamera(i);
+        //     }
+        //     if (selectedCamera)
+        //         ImGui::PopStyleColor();
+        // }
+        // ImGui::SameLine();
         ImGui::Text("AXES: X-RED Y-GREEN Z-BLUE");
         break;
     }
@@ -524,6 +574,7 @@ void BasicScene::BuildImGui()
         {
             gameState = GameState::MidLevel;
             animate = true;
+            paused = false;
         }
         
         cursorCentered("Quit Game", 10);
@@ -560,8 +611,10 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     auto axis_material = std::make_shared<Material>("axis-material", program1);
     material->AddTexture(0, "textures/box0.bmp", 2);
 
+    auto EnemyMesh{IglLoader::MeshFromFiles("lionEnemy", "data/lion.off")};
     auto cylMesh{IglLoader::MeshFromFiles("cyl_igl", "data/zcylinder.obj")};
     auto sphereMesh{IglLoader::MeshFromFiles("sphere_igl", "data/sphere.obj")};
+    auto PointMesh{IglLoader::MeshFromFiles("bunnyPoint", "data/bunny.off")};
     auto coordsys = Mesh::Axis();
 
     sceneRoot = cg3d::Model::Create("sroot", sphereMesh, material);
@@ -646,16 +699,19 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     camList[2]->Translate(20, Scene::Axis::Y);
     camList[2]->RotateByDegree(-90, Scene::Axis::X);
     
-    // camList[2]->Translate(20, Scene::Axis::Y);
+    
 
-    sphere = cg3d::Model::Create("sphere", sphereMesh, material);
-    sphere->showWireframe = true;
-    sceneRoot->AddChild(sphere);
-    sphere->Translate(getTipOfLink(links.size() - 1));
+    bunnyPoint = cg3d::Model::Create("bunny", PointMesh, material);
+    bunnyPoint->Scale(8);
+    sceneRoot->AddChild(bunnyPoint);
+    bunnyPoint->isHidden = true;
+    points.push_back(std::make_shared<SnakePoint>(bunnyPoint, 0));
 
-    points.push_back(std::make_shared<SnakePoint>(sphere, 0));
-    links[links.size() - 1]->ShowCollider();
-    points[0]->ShowCollider();
+    lionEnemy = cg3d::Model::Create("lion", EnemyMesh, material);
+    lionEnemy->isHidden = true;
+    sceneRoot->AddChild(lionEnemy);
+    enemies.push_back(std::make_shared<Enemy>(lionEnemy,Eigen::Vector3f{-40.5,0,14},0.05,Eigen::Vector3f{5,0,0}));
+    
 }
 
 void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, const Eigen::Matrix4f &view, const Eigen::Matrix4f &model)
