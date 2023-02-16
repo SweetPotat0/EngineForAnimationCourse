@@ -26,6 +26,7 @@
 #include "file_dialog_open.h"
 #include "GLFW/glfw3.h"
 
+
 using namespace cg3d;
 
 void BasicScene::animation()
@@ -148,18 +149,18 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
             if (!paused)
                 SetCamera(2);
             break;
-        case GLFW_KEY_UP:
-        lionEnemy->Translate({0,0,0.5});
-        break;
-        case GLFW_KEY_DOWN:
-        lionEnemy->Translate({0,0,-0.5});
-        break;
-        case GLFW_KEY_LEFT:
-        lionEnemy->Translate({-0.5,0,0});
-        break;
-        case GLFW_KEY_RIGHT:
-        lionEnemy->Translate({0.5,0,0});
-        break;
+        // case GLFW_KEY_UP:
+        // enemy->Translate({0,0,0.5});
+        // break;
+        // case GLFW_KEY_DOWN:
+        // enemy->Translate({0,0,-0.5});
+        // break;
+        // case GLFW_KEY_LEFT:
+        // enemy->Translate({-0.5,0,0});
+        // break;
+        // case GLFW_KEY_RIGHT:
+        // enemy->Translate({0.5,0,0});
+        // break;
         }
         
         
@@ -608,13 +609,23 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     auto program = std::make_shared<Program>("shaders/basicShader");
     auto program1 = std::make_shared<Program>("shaders/axisShader");
     auto material = std::make_shared<Material>("material", program);
+    auto paintedEgg{std::make_shared<Material>("paintedEgg", program)};
+    auto snakeSkin{std::make_shared<Material>("snakeSkin", program)};
+    auto swordTex{std::make_shared<Material>("sword", program)};
+    // auto leopardFur{std::make_shared<Material>("leopardFur", program)};
+
     auto axis_material = std::make_shared<Material>("axis-material", program1);
     material->AddTexture(0, "textures/box0.bmp", 2);
+    snakeSkin->AddTexture(0, "textures/snake1.png", 2);
+    paintedEgg->AddTexture(0, "textures/paintedEgg.jpg", 2);
+    swordTex->AddTexture(0, "textures/Sword_texture.png", 2);
+    // leopardFur->AddTexture(0, "textures/leopard.webp", 2);
 
-    auto EnemyMesh{IglLoader::MeshFromFiles("lionEnemy", "data/lion.off")};
-    auto cylMesh{IglLoader::MeshFromFiles("cyl_igl", "data/zcylinder.obj")};
+    auto EnemyMesh{IglLoader::MeshLoader2("enemy", "data/Sword.obj")};
+    auto PointMesh{IglLoader::MeshLoader2("eggPoint", "data/egg.obj")};
+    auto cylMesh{IglLoader::MeshLoader2("cyl_igl", "data/zcylinder.obj")};
     auto sphereMesh{IglLoader::MeshFromFiles("sphere_igl", "data/sphere.obj")};
-    auto PointMesh{IglLoader::MeshFromFiles("bunnyPoint", "data/bunny.off")};
+    
     auto coordsys = Mesh::Axis();
 
     sceneRoot = cg3d::Model::Create("sroot", sphereMesh, material);
@@ -649,7 +660,7 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     axis[0]->SetTout(Eigen::Affine3f::Identity());
     axis[0]->modelOnPick = root;
 
-    links.push_back(std::make_shared<Collidable>(cg3d::Model::Create("link 0", cylMesh, material)));
+    links.push_back(std::make_shared<Collidable>(cg3d::Model::Create("link 0", cylMesh, snakeSkin)));
     links[0]->Model->showWireframe = true;
     links[0]->Model->Translate(0.8f, Axis::Z);
     links[0]->Model->SetCenter(Eigen::Vector3f(0, 0, -0.8));
@@ -659,7 +670,7 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
 
     for (size_t i = 1; i < linksCount; i++)
     {
-        links.push_back(std::make_shared<Collidable>(cg3d::Model::Create("link " + std::to_string(i), cylMesh, material)));
+        links.push_back(std::make_shared<Collidable>(cg3d::Model::Create("link " + std::to_string(i), cylMesh, snakeSkin)));
         links[i]->Model->showWireframe = true;
         links[i]->Model->Translate(1.6f, Axis::Z);
         links[i]->Model->SetCenter(Eigen::Vector3f(0, 0, -0.8));
@@ -698,19 +709,18 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     camList[2]->SetTout(Eigen::Affine3f::Identity());
     camList[2]->Translate(20, Scene::Axis::Y);
     camList[2]->RotateByDegree(-90, Scene::Axis::X);
-    
-    
 
-    bunnyPoint = cg3d::Model::Create("bunny", PointMesh, material);
-    bunnyPoint->Scale(8);
+    bunnyPoint = cg3d::Model::Create("bunny", PointMesh, paintedEgg);
+    bunnyPoint->Scale(0.02f);
     sceneRoot->AddChild(bunnyPoint);
     bunnyPoint->isHidden = true;
     points.push_back(std::make_shared<SnakePoint>(bunnyPoint, 0));
 
-    lionEnemy = cg3d::Model::Create("lion", EnemyMesh, material);
-    lionEnemy->isHidden = true;
-    sceneRoot->AddChild(lionEnemy);
-    enemies.push_back(std::make_shared<Enemy>(lionEnemy,Eigen::Vector3f{-40.5,0,14},0.05,Eigen::Vector3f{5,0,0}));
+    enemy = cg3d::Model::Create("enemy", EnemyMesh, swordTex);
+    enemy->Scale(0.2f);
+    enemy->isHidden = true;
+    sceneRoot->AddChild(enemy);
+    enemies.push_back(std::make_shared<Enemy>(enemy,Eigen::Vector3f{0,0,0},0.05,Eigen::Vector3f{5,0,0}));
     
 }
 

@@ -2,6 +2,8 @@
 //#include <per_vertex_normals.h>
 #include <barycentric_coordinates.h>
 #include <vector>
+#include "readOBJ.h"
+#include "ObjLoader.h"
 
 #pragma warning(push, 3)
 #pragma warning (disable: 4244) // disable annoying warnings from OBJ_Loader.h
@@ -79,5 +81,38 @@ std::shared_ptr<Mesh> IglLoader::MeshLoader(std::string name, const std::vector<
     return std::make_shared<Mesh>(std::move(name), dataList);
 }
 
+std::shared_ptr<Mesh> IglLoader::MeshLoader1(std::string name, const std::string file)
+{    
+    std::vector<MeshData> dataList;
+    std::vector<std::vector<double>> V, TC, N;
+    std::vector<std::vector<int>> F, FTC, FN;
+    igl::readOBJ(file, V, TC, N, F, FTC, FN);
+    Eigen::MatrixXd vertices(V.size(), 3);
+    Eigen::MatrixXd textureCoords(TC.size(), 2);
+    Eigen::MatrixXd vertexNormals(N.size(), 3);
+    Eigen::MatrixXi faces(F.size(), 3);
+    for (size_t i = 0; i < V.size(); i++) {
+        vertices.row(i) = Eigen::Map<Eigen::VectorXd>(V[i].data(), V[i].size());
+    }
+    for (size_t i = 0; i < TC.size(); i++) {
+        textureCoords.row(i) = Eigen::Map<Eigen::VectorXd>(TC[i].data(), TC[i].size());
+    }
+    for (size_t i = 0; i < N.size(); i++) {
+        vertexNormals.row(i) = Eigen::Map<Eigen::VectorXd>(N[i].data(), N[i].size());
+    }
+    for (size_t i = 0; i < F.size(); i++) {
+        faces.row(i) = Eigen::Map<Eigen::Vector3i>(F[i].data());
+    }
+    dataList.push_back({vertices,faces,vertexNormals,textureCoords});
+    return std::make_shared<Mesh>(std::move(name), dataList);
+}
+
+std::shared_ptr<Mesh> IglLoader::MeshLoader2(std::string name, const std::string file)
+{    
+    std::vector<std::string> files;
+    files.push_back(file);
+    auto MESH = ObjLoader::MeshFromObj(name, files);
+    return MESH;
+}
 
 } // namespace cg3d

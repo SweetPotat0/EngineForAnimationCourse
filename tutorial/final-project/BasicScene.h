@@ -58,7 +58,7 @@ private:
     std::vector<std::shared_ptr<cg3d::Camera>> camList;
     std::vector<std::shared_ptr<cg3d::Model>> axis, axis1;
     std::vector<std::shared_ptr<Collidable>> links;
-    std::shared_ptr<cg3d::Model> bunnyPoint,lionEnemy, root, sceneRoot;
+    std::shared_ptr<cg3d::Model> bunnyPoint,enemy, root, sceneRoot;
     igl::AABB<Eigen::MatrixXd,3> treeSnakeHead;
     std::vector<std::shared_ptr<SnakePoint>> points;
     std::vector<std::shared_ptr<Enemy>> enemies;

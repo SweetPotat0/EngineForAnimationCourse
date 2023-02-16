@@ -25,6 +25,8 @@ struct IglLoader
 {
     //static MeshData MeshDataLoader(const objl::Mesh& loadedMesh);
     static std::shared_ptr<Mesh> MeshLoader(std::string name, const std::vector<std::string>& files);
+    static std::shared_ptr<Mesh> MeshLoader1(std::string name, const std::string file);
+    static std::shared_ptr<Mesh> MeshLoader2(std::string name, const std::string file);
     //static std::shared_ptr<Mesh> MeshFromObj(std::string name, std::istream& in);
     //static std::shared_ptr<Mesh> MeshFromObjLoader(std::string name, objl::Loader& loader);
 
