@@ -10,6 +10,7 @@
 #include <utility>
 #include "./SnakePoint.h"
 #include "./Enemy.h"
+#include "./Ability.h"
 
 class BasicScene : public cg3d::SceneWithImGui
 {
@@ -46,6 +47,10 @@ public:
 private:
     void CheckPointCollisions();
     void CheckEnemyCollisions();
+    void useBoostAbility();
+    void useInvisAbility();
+    void endBoostAbility();
+    void endInvisAbility();
     int DISPLAY_WIDTH = 0;
     int DISPLAY_HEIGHT = 0;
     GameState gameState = GameState::StartMenu;
@@ -58,18 +63,23 @@ private:
     std::vector<std::shared_ptr<cg3d::Camera>> camList;
     std::vector<std::shared_ptr<cg3d::Model>> axis, axis1;
     std::vector<std::shared_ptr<Collidable>> links;
-    std::shared_ptr<cg3d::Model> bunnyPoint,enemy, root, sceneRoot;
+    std::shared_ptr<cg3d::Model> pointModel,enemyModel, root, sceneRoot;
     igl::AABB<Eigen::MatrixXd,3> treeSnakeHead;
     std::vector<std::shared_ptr<SnakePoint>> points;
     std::vector<std::shared_ptr<Enemy>> enemies;
+    std::shared_ptr<cg3d::Material> snakeSkin, snakeSkinTransparent;
     bool paused = true;
     int picked_index = 0;
     int counter = 0;
-    float delta = 0.05;
+    float delta = 0.05f;
     int playingLevel = 0;
     int levelScore = 0;
     float movementSpeed = 0.01f;
-    Eigen::Vector3f sphereMaxPos = {7.5,5,3};
+    std::chrono::steady_clock::time_point gameTime;
+    std::chrono::seconds gameDuration = std::chrono::seconds(120);
+    Ability boostAbility = Ability(15, 5);
+    Ability invisAbility = Ability(10, 3);
+
 
     int lastx = -1, lasty = -1;
     Eigen::Affine3f otherPickedToutAtPress;

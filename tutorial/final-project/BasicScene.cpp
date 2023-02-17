@@ -31,6 +31,16 @@ using namespace cg3d;
 
 void BasicScene::animation()
 {
+    if (std::chrono::steady_clock::now() - gameTime > gameDuration){
+        std::cout << "GAME OVER" << std::endl;
+        gameState = GameState::AfterLevel;
+        animate = false;
+        paused = true;
+    }
+
+    if (boostAbility.didAbilityEnd()) endBoostAbility();
+    if (invisAbility.didAbilityEnd()) endInvisAbility();
+
     Eigen::MatrixX3f system = Eigen::Affine3f(links[3]->Model->GetAggregatedTransform()).rotation().transpose();
     links[0]->Model->TranslateInSystem(system, Eigen::Vector3f(0, 0, movementSpeed));
     CheckPointCollisions();
@@ -58,23 +68,18 @@ void BasicScene::CheckPointCollisions()
             free(collidingOBB);
             std::cout << "You hit! Earned " << point->Score << " points!" << std::endl;
             levelScore += point->Score;
-            points.erase(points.begin() + i);
-            i--;
-            pointsSize--;
-            if (playingLevel == 1 || playingLevel == 2){
-                bunnyPoint->SetTout(Eigen::Affine3f::Identity());
-                auto newPoint = GenerateRandomPoint(camList[2],5,35);
-                bunnyPoint->Translate(newPoint);
-                float score4Point = (newPoint - links[links.size() - 1]->Model->GetTranslation()).norm();
 
-                points.push_back(std::make_shared<SnakePoint>(bunnyPoint, score4Point));
-            }
+            point->Model->SetTout(Eigen::Affine3f::Identity());
+            auto newPoint = GenerateRandomPoint(camList[2],5,35);
+            point->Model->Translate(newPoint);
+            float score4Point = (newPoint - links[links.size() - 1]->Model->GetTranslation()).norm();
+
         }
     }
 }
 void BasicScene::CheckEnemyCollisions()
 {
-    bool foundCollision = false;
+    bool foundCollision = invisAbility.inUse;
     for (size_t i = 0; i < enemies.size() && !foundCollision; i++)
     {
         for (size_t j = 0; j < links.size() && !foundCollision; j++)
@@ -137,6 +142,27 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
                 links[3]->Model->RotateInSystem(system, 0.1, Axis::Z);
             }
             break;
+        case GLFW_KEY_E:
+            if (!paused){
+                if (boostAbility.canUse())
+                {
+                    useBoostAbility();
+                    boostAbility.abilityUsed();
+                }
+            }
+            break;
+        case GLFW_KEY_Q:
+            if (!paused){
+                if (invisAbility.canUse())
+                {
+                    useInvisAbility();
+                    invisAbility.abilityUsed();
+                }
+                // pointModel->material = snakeSkinTransparent;
+            }
+            break;
+
+                
         case GLFW_KEY_1:
             if (!paused)
                 SetCamera(0);
@@ -190,6 +216,7 @@ void BasicScene::ScrollCallback(Viewport *viewport, int x, int y, int xoffset, i
     {
         camera->TranslateInSystem(system, {0, 0, -float(yoffset)});
         cameraToutAtPress = camera->GetTout();
+
     }
 }
 
@@ -367,10 +394,12 @@ void BasicScene::startLevel(int level){
             points[i]->Model->Translate(newPoint);
             float score4Point = (newPoint - links[links.size() - 1]->Model->GetTranslation()).norm();
             points[i]->Score = score4Point;
+            
         }
         links[0]->Model->Translate(-links[0]->Model->GetTranslation()); // reset snake
         for (size_t i = 0; i < links.size(); i++)
             links[i]->Model->Rotate(links[i]->Model->GetRotation().matrix().inverse());
+        gameTime = std::chrono::steady_clock::now();
         break;
     case 2:
         for (size_t i = 0; i < points.size(); i++) // reset points
@@ -385,6 +414,7 @@ void BasicScene::startLevel(int level){
             enemies[i]->Model->Translate(enemies[i]->startinPosition);
             enemies[i]->destination = GenerateRandomPoint(BasicScene::camList[2],5,35);
         }
+        gameTime = std::chrono::steady_clock::now();
         break;
     
     default:
@@ -424,7 +454,7 @@ void BasicScene::BuildImGui()
     case GameState::Level1:
     {
         float window_width = 400;
-        float window_height = 320;
+        float window_height = 340;
         ImGui::SetWindowPos(ImVec2((DISPLAY_WIDTH - window_width) / 2, (DISPLAY_HEIGHT - window_height) / 2), ImGuiCond_Always);
         ImGui::SetWindowSize(ImVec2(window_width, window_height));
 
@@ -434,6 +464,7 @@ void BasicScene::BuildImGui()
         TextCentered("S - Down      2 - First person camera", 10);
         TextCentered("A - Left      3 - Static camera      ", 10);
         TextCentered("D - Right     ESC - Pause game       ", 10);
+        TextCentered("Q - Ghost     E - Boost              ", 10);
 
         TextCentered("Eat the Bunny!", 30);
         TextCentered("The faster you catch it, the more points you get", 10);
@@ -484,25 +515,40 @@ void BasicScene::BuildImGui()
     {
         ImGui::SetWindowPos(ImVec2(0, 0), ImGuiCond_Always);
         ImGui::SetWindowSize(ImVec2(0, 0), ImGuiCond_Always);
+
         std::string scoreStr = "Score: ";
         scoreStr = scoreStr + std::to_string(levelScore);
         TextCentered(scoreStr.c_str(), 0);
-        // ImGui::Text("Camera: ");
-        // for (int i = 0; i < camList.size(); i++)
-        // {
-        //     bool selectedCamera = camList[i] == camera;
-        //     if (selectedCamera)
-        //     {
-        //         ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
-        //     }
-        //     if (ImGui::Button(camList[i]->name.c_str()))
-        //     {
-        //         SetCamera(i);
-        //     }
-        //     if (selectedCamera)
-        //         ImGui::PopStyleColor();
-        // }
-        // ImGui::SameLine();
+
+        std::string timerStr = "Timer: ";
+        auto remaining_time = gameDuration - (std::chrono::steady_clock::now() - gameTime);
+        auto a = std::chrono::duration_cast<std::chrono::seconds>(remaining_time).count();
+        timerStr = timerStr + std::to_string(a);
+        TextCentered(timerStr.c_str(), 0);
+
+        unsigned int color;
+        if (boostAbility.inUse)
+            color = IM_COL32(128,128,128,255);
+        else if (boostAbility.canUse())
+            color = IM_COL32(0,255,0,255);
+        else
+            color = IM_COL32(255,0,0,255);
+        
+        ImGui::PushStyleColor(ImGuiCol_Text, color);
+        ImGui::Text("Boost");
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+
+        if (invisAbility.inUse)
+            color = IM_COL32(128,128,128,255);
+        else if (invisAbility.canUse())
+            color = IM_COL32(0,255,0,255);
+        else
+            color = IM_COL32(255,0,0,255);
+        
+        ImGui::PushStyleColor(ImGuiCol_Text, color);
+        ImGui::Text("Ghost");
+        ImGui::PopStyleColor();
         ImGui::Text("AXES: X-RED Y-GREEN Z-BLUE");
         break;
     }
@@ -608,18 +654,19 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
 
     auto program = std::make_shared<Program>("shaders/basicShader");
     auto program1 = std::make_shared<Program>("shaders/axisShader");
+    auto program2 = std::make_shared<Program>("shaders/basicShader1");
     auto material = std::make_shared<Material>("material", program);
     auto paintedEgg{std::make_shared<Material>("paintedEgg", program)};
-    auto snakeSkin{std::make_shared<Material>("snakeSkin", program)};
+    snakeSkin = std::make_shared<Material>("snakeSkin", program);
+    snakeSkinTransparent = std::make_shared<Material>("snakeSkinTransparent", program2);
     auto swordTex{std::make_shared<Material>("sword", program)};
-    // auto leopardFur{std::make_shared<Material>("leopardFur", program)};
 
     auto axis_material = std::make_shared<Material>("axis-material", program1);
     material->AddTexture(0, "textures/box0.bmp", 2);
     snakeSkin->AddTexture(0, "textures/snake1.png", 2);
+    snakeSkinTransparent->AddTexture(0, "textures/snake1.png", 2);
     paintedEgg->AddTexture(0, "textures/paintedEgg.jpg", 2);
     swordTex->AddTexture(0, "textures/Sword_texture.png", 2);
-    // leopardFur->AddTexture(0, "textures/leopard.webp", 2);
 
     auto EnemyMesh{IglLoader::MeshLoader2("enemy", "data/Sword.obj")};
     auto PointMesh{IglLoader::MeshLoader2("eggPoint", "data/egg.obj")};
@@ -710,22 +757,24 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     camList[2]->Translate(20, Scene::Axis::Y);
     camList[2]->RotateByDegree(-90, Scene::Axis::X);
 
-    bunnyPoint = cg3d::Model::Create("bunny", PointMesh, paintedEgg);
-    bunnyPoint->Scale(0.02f);
-    sceneRoot->AddChild(bunnyPoint);
-    bunnyPoint->isHidden = true;
-    points.push_back(std::make_shared<SnakePoint>(bunnyPoint, 0));
+    pointModel = cg3d::Model::Create("bunny", PointMesh, paintedEgg);
+    pointModel->Scale(0.02f);
+    sceneRoot->AddChild(pointModel);
+    pointModel->isHidden = true;
+    points.push_back(std::make_shared<SnakePoint>(pointModel, 0));
 
-    enemy = cg3d::Model::Create("enemy", EnemyMesh, swordTex);
-    enemy->Scale(0.2f);
-    enemy->isHidden = true;
-    sceneRoot->AddChild(enemy);
-    enemies.push_back(std::make_shared<Enemy>(enemy,Eigen::Vector3f{0,0,0},0.05,Eigen::Vector3f{5,0,0}));
+    enemyModel = cg3d::Model::Create("enemy", EnemyMesh, swordTex);
+    enemyModel->Scale(0.2f);
+    enemyModel->isHidden = true;
+    sceneRoot->AddChild(enemyModel);
+    enemies.push_back(std::make_shared<Enemy>(enemyModel,Eigen::Vector3f{0,0,0},0.05,Eigen::Vector3f{5,0,0}));
+    
     
 }
 
 void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, const Eigen::Matrix4f &view, const Eigen::Matrix4f &model)
 {
+    
     Scene::Update(program, proj, view, model);
     // cube->Rotate(0.01f, Axis::XYZ);
     static int frameCount = 0;
@@ -758,4 +807,25 @@ Eigen::Vector3f BasicScene::GenerateRandomPoint(std::shared_ptr<cg3d::Camera> ca
     // Transform the point from camera space to world space
     Eigen::Vector3f result = camera->GetTranslation() + camera->GetRotation() * Eigen::Vector3f(x, y, -z);
     return result;
+}
+
+void BasicScene::useBoostAbility(){
+    movementSpeed *=5;
+}
+
+void BasicScene::endBoostAbility(){
+    movementSpeed /=5;
+}
+
+void BasicScene::useInvisAbility(){
+    for (size_t i = 0; i < links.size(); i++)
+    {
+        links[i]->Model->material = snakeSkinTransparent;
+    }
+}
+void BasicScene::endInvisAbility(){
+    for (size_t i = 0; i < links.size(); i++)
+    {
+        links[i]->Model->material = snakeSkin;
+    }
 }

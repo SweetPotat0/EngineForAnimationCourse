@@ -7,12 +7,13 @@ in vec3 position0;
 
 uniform vec4 lightColor;
 uniform sampler2D sampler1;
-uniform sampler2D sampler2;
 uniform vec4 lightDirection;
 
 out vec4 Color;
 
 void main()
 {
-	Color = ( texture(sampler1, texCoord0)*0.6 + texture(sampler2, texCoord0)*0.4 )* vec4(color0,1.0); //you must have Color
+	vec4 a = texture(sampler1, texCoord0);
+	a.w = 0.5;
+	Color = a; //you must have Color
 }
