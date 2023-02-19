@@ -12,6 +12,11 @@
 #include "./Enemy.h"
 #include "./Ability.h"
 
+
+typedef 
+  std::vector<Eigen::Quaterniond,Eigen::aligned_allocator<Eigen::Quaterniond> >
+  RotationList;
+
 class BasicScene : public cg3d::SceneWithImGui
 {
 public:
@@ -51,6 +56,7 @@ private:
     void useInvisAbility();
     void endBoostAbility();
     void endInvisAbility();
+    Eigen::Vector4f getDistanceFromColsestJoints(Eigen::Vector3f posV, Eigen::MatrixXd C);
     int DISPLAY_WIDTH = 0;
     int DISPLAY_HEIGHT = 0;
     GameState gameState = GameState::StartMenu;
@@ -63,7 +69,7 @@ private:
     std::vector<std::shared_ptr<cg3d::Camera>> camList;
     std::vector<std::shared_ptr<cg3d::Model>> axis, axis1;
     std::vector<std::shared_ptr<Collidable>> links;
-    std::shared_ptr<cg3d::Model> pointModel,enemyModel, root, sceneRoot;
+    std::shared_ptr<cg3d::Model> pointModel,enemyModel, root, sceneRoot, snake;
     igl::AABB<Eigen::MatrixXd,3> treeSnakeHead;
     std::vector<std::shared_ptr<SnakePoint>> points;
     std::vector<std::shared_ptr<Enemy>> enemies;
@@ -79,6 +85,13 @@ private:
     std::chrono::seconds gameDuration = std::chrono::seconds(120);
     Ability boostAbility = Ability(15, 5);
     Ability invisAbility = Ability(10, 3);
+
+    float linkSize = 1.6f;
+    Eigen::MatrixXd C,V,U,W;
+    Eigen::MatrixXi BE,F;
+    Eigen::VectorXi P;
+    std::vector<RotationList > poses;
+    double anim_t=0.0;
 
 
     int lastx = -1, lasty = -1;

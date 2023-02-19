@@ -85,6 +85,8 @@
         "xutility": "cpp",
         "alignedvector3": "cpp",
         "ranges": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "*.expression": "cpp",
+        "fft": "cpp"
     }
 }
