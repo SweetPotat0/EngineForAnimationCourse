@@ -1,5 +1,6 @@
 #define _USE_MATH_DEFINES
 
+
 #include "./BasicScene.h"
 #include <read_triangle_mesh.h>
 #include <utility>
@@ -25,7 +26,9 @@
 #include "imgui.h"
 #include "file_dialog_open.h"
 #include "GLFW/glfw3.h"
-
+#include <Windows.h>
+#include <mmsystem.h>
+#pragma comment(lib, "WinMM.lib")
 
 using namespace cg3d;
 
@@ -65,6 +68,8 @@ void BasicScene::CheckPointCollisions()
         if (collidingOBB != NULL)
         {
             // Hit
+            PlaySound("data/PointSound.wav", NULL, SND_FILENAME | SND_ASYNC);
+            
             free(collidingOBB);
             std::cout << "You hit! Earned " << point->Score << " points!" << std::endl;
             levelScore += point->Score;
@@ -87,6 +92,7 @@ void BasicScene::CheckEnemyCollisions()
             auto collidingOBB = links[j]->getCollidingOBB(enemies[i]);
             if (collidingOBB != NULL){
                 // Hit
+                PlaySound("data/SwordSound.wav", NULL, SND_FILENAME | SND_ASYNC);
                 free(collidingOBB);
                 std::cout << "GAME OVER" << std::endl;
                 gameState = GameState::AfterLevel;
@@ -443,6 +449,9 @@ void BasicScene::BuildImGui()
         if (ImGui::Button("Start Game"))
         {
             gameState = GameState::Level1;
+            
+            // PlaySound("C:\\Users\\ido\\Downloads\\Run-Amok.wav", NULL, SND_FILENAME | SND_ASYNC | SND_LOOP);
+            
         }
         cursorCentered("Quit Game", 25);
         if (ImGui::Button("Quit Game"))
@@ -640,7 +649,7 @@ void BasicScene::BuildImGui()
     ImGui::End();
 }
 
-void BasicScene::Init(float fov, int width, int height, float near, float far)
+void BasicScene::Init(float fov, int width, int height, float near1, float far1)
 {
     DISPLAY_HEIGHT = height;
     DISPLAY_WIDTH = width;
@@ -684,9 +693,9 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     root->isHidden = true;
 
     // create the camera objects
-    camList.push_back(Camera::Create("Third Person Camera", fov, float(width) / float(height), near, far));
-    camList.push_back(Camera::Create("First Person Camera", fov, float(width) / float(height), near, far));
-    camList.push_back(Camera::Create("Static Top Camera", fov, float(width) / float(height), near, far));
+    camList.push_back(Camera::Create("Third Person Camera", fov, float(width) / float(height), near1, far1));
+    camList.push_back(Camera::Create("First Person Camera", fov, float(width) / float(height), near1, far1));
+    camList.push_back(Camera::Create("Static Top Camera", fov, float(width) / float(height), near1, far1));
     camera = camList[0];
 
     // Third Person axis
@@ -769,7 +778,6 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     sceneRoot->AddChild(enemyModel);
     enemies.push_back(std::make_shared<Enemy>(enemyModel,Eigen::Vector3f{0,0,0},0.05,Eigen::Vector3f{5,0,0}));
     
-    
 }
 
 void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, const Eigen::Matrix4f &view, const Eigen::Matrix4f &model)
@@ -787,13 +795,13 @@ void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, con
 
 
 // Generate a random point within the camera's field of view
-Eigen::Vector3f BasicScene::GenerateRandomPoint(std::shared_ptr<cg3d::Camera> camera, float near, float far) {
+Eigen::Vector3f BasicScene::GenerateRandomPoint(std::shared_ptr<cg3d::Camera> camera, float near1, float far1) {
     // Define a random number generator
     std::random_device rd;
     std::mt19937 gen(rd());
 
     // Generate a random point within the frustum defined by the camera's field of view
-    float z = std::uniform_real_distribution<>(near, far)(gen);
+    float z = std::uniform_real_distribution<>(near1, far1)(gen);
     float x = tan((camera->fov * (M_PI/180)) / 2) * z * camera->ratio;
     float y = tan((camera->fov * (M_PI/180)) / 2) * z;
 
@@ -811,6 +819,7 @@ Eigen::Vector3f BasicScene::GenerateRandomPoint(std::shared_ptr<cg3d::Camera> ca
 
 void BasicScene::useBoostAbility(){
     movementSpeed *=5;
+    PlaySound("data/BoostSound.wav", NULL, SND_FILENAME | SND_ASYNC);
 }
 
 void BasicScene::endBoostAbility(){
@@ -822,6 +831,7 @@ void BasicScene::useInvisAbility(){
     {
         links[i]->Model->material = snakeSkinTransparent;
     }
+    PlaySound("data/GhostSound.wav", NULL, SND_FILENAME | SND_ASYNC);
 }
 void BasicScene::endInvisAbility(){
     for (size_t i = 0; i < links.size(); i++)
