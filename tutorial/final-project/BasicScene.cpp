@@ -44,12 +44,15 @@ void BasicScene::animation()
     if (boostAbility.didAbilityEnd()) endBoostAbility();
     if (invisAbility.didAbilityEnd()) endInvisAbility();
 
+    pointModel->RotateInSystem(Eigen::Matrix3f::Identity(),0.02f,Axis::Z);
     Eigen::MatrixX3f system = Eigen::Affine3f(links[3]->Model->GetAggregatedTransform()).rotation().transpose();
     links[0]->Model->TranslateInSystem(system, Eigen::Vector3f(0, 0, movementSpeed));
     CheckPointCollisions();
     if (playingLevel == 2)
     {
+        // enemyModel->RotateByDegree(0.5f,Axis::Z);
         for (size_t i = 0; i < enemies.size(); i++){
+            enemies[i]->Model->Rotate(enemies[i]->spinSpeed,Axis::Z);
             if (enemies[i]->ifReachedDest())
                 enemies[i]->destination = GenerateRandomPoint(BasicScene::camList[2],5,35);
             enemies[i]->moveTowardsDest();
@@ -74,10 +77,7 @@ void BasicScene::CheckPointCollisions()
             std::cout << "You hit! Earned " << point->Score << " points!" << std::endl;
             levelScore += point->Score;
 
-            point->Model->SetTout(Eigen::Affine3f::Identity());
-            auto newPoint = GenerateRandomPoint(camList[2],5,35);
-            point->Model->Translate(newPoint);
-            float score4Point = (newPoint - links[links.size() - 1]->Model->GetTranslation()).norm();
+            point->moveToNewPosition(GenerateRandomPoint(camList[2],5,35), links[links.size() - 1]->Model->GetTranslation());
 
         }
     }
@@ -182,7 +182,7 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
                 SetCamera(2);
             break;
         // case GLFW_KEY_UP:
-        // enemy->Translate({0,0,0.5});
+        // enemyModel->RotateByDegree(10.0f,Axis::Z);
         // break;
         // case GLFW_KEY_DOWN:
         // enemy->Translate({0,0,-0.5});
@@ -395,11 +395,8 @@ void BasicScene::startLevel(int level){
     case 1:
         for (size_t i = 0; i < points.size(); i++){// reset points
             points[i]->Model->isHidden = false;
-            points[i]->Model->SetTout(Eigen::Affine3f::Identity());
-            auto newPoint = GenerateRandomPoint(camList[2],5,35);
-            points[i]->Model->Translate(newPoint);
-            float score4Point = (newPoint - links[links.size() - 1]->Model->GetTranslation()).norm();
-            points[i]->Score = score4Point;
+            // points[i]->Model->SetTout(Eigen::Affine3f::Identity());
+            points[i]->moveToNewPosition(GenerateRandomPoint(camList[2],5,35),links[links.size() - 1]->Model->GetTranslation());
             
         }
         links[0]->Model->Translate(-links[0]->Model->GetTranslation()); // reset snake
@@ -475,8 +472,8 @@ void BasicScene::BuildImGui()
         TextCentered("D - Right     ESC - Pause game       ", 10);
         TextCentered("Q - Ghost     E - Boost              ", 10);
 
-        TextCentered("Eat the Bunny!", 30);
-        TextCentered("The faster you catch it, the more points you get", 10);
+        TextCentered("Eat the Egg!", 30);
+        TextCentered("The faster you get to it, the more points you get", 10);
 
         cursorCentered("Start Level", 10);
         if (ImGui::Button("Start Level"))
@@ -492,9 +489,9 @@ void BasicScene::BuildImGui()
 
         TextCentered("Level 2", 30);
 
-        TextCentered("Eat the Bunny!", 30);
+        TextCentered("Eat the Egg!", 30);
         TextCentered("The faster you catch it, the more points you get", 10);
-        TextCentered("Dodge the moving Lions", 10);
+        TextCentered("Dodge the moving Sword", 10);
 
         cursorCentered("Start Level", 20);
         if (ImGui::Button("Start Level"))
@@ -664,6 +661,7 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     auto program = std::make_shared<Program>("shaders/basicShader");
     auto program1 = std::make_shared<Program>("shaders/axisShader");
     auto program2 = std::make_shared<Program>("shaders/basicShader1");
+    auto program3 = std::make_shared<Program>("shaders/basicShader3");
     auto material = std::make_shared<Material>("material", program);
     auto paintedEgg{std::make_shared<Material>("paintedEgg", program)};
     snakeSkin = std::make_shared<Material>("snakeSkin", program);
@@ -766,17 +764,19 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     camList[2]->Translate(20, Scene::Axis::Y);
     camList[2]->RotateByDegree(-90, Scene::Axis::X);
 
-    pointModel = cg3d::Model::Create("bunny", PointMesh, paintedEgg);
+    pointModel = cg3d::Model::Create("Point", PointMesh, paintedEgg);
     pointModel->Scale(0.02f);
     sceneRoot->AddChild(pointModel);
     pointModel->isHidden = true;
     points.push_back(std::make_shared<SnakePoint>(pointModel, 0));
+    pointModel->RotateByDegree(165.0f,Axis::Y);
+    
 
-    enemyModel = cg3d::Model::Create("enemy", EnemyMesh, swordTex);
+    enemyModel = cg3d::Model::Create("Enemy", EnemyMesh, swordTex);
     enemyModel->Scale(0.2f);
     enemyModel->isHidden = true;
     sceneRoot->AddChild(enemyModel);
-    enemies.push_back(std::make_shared<Enemy>(enemyModel,Eigen::Vector3f{0,0,0},0.05,Eigen::Vector3f{5,0,0}));
+    enemies.push_back(std::make_shared<Enemy>(enemyModel,0.05, 0.01,Eigen::Vector3f{5,0,0}));
     
 }
 
@@ -784,13 +784,15 @@ void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, con
 {
     
     Scene::Update(program, proj, view, model);
-    // cube->Rotate(0.01f, Axis::XYZ);
     static int frameCount = 0;
     if (strcmp(program.name.c_str(), "axis-material") == 0)
     {
         Eigen::Vector3f position = Eigen::Affine3f(model).translation();
         program.SetUniform3f("root", position.x(), position.y(), position.z());
     }
+    // else if (strcmp(program.name.c_str(), "paintedEgg") == 0){
+    //     program.SetUniform2f("alpha", 1,1);
+    // }
 }
 
 
