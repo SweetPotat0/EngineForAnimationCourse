@@ -699,6 +699,45 @@ void BasicScene::BuildImGui()
     ImGui::End();
 }
 
+float WeightFunction(float distance)
+{
+    // return 1 / powf(distance, 15.0f);
+    return 1 / log10f(powf(distance, 2.0f) + 1);
+}
+
+Eigen::Vector2f CalculateWeightByDistances(int joint1Index, float distance1, int joint2Index, float distance2)
+{
+    // The distance from which to give full control to the previous joint
+    // Change to zero if you want always to be manipulated by previous joint
+    float distanceThreshold = INFINITY;
+    if (joint1Index < joint2Index)
+    {
+        // Give more weight to joint 1
+        if (distance2 > distanceThreshold)
+        {
+            // Distance 2 is too big, give only to 1
+            return {1, 0};
+        }
+        else
+        {
+            return Eigen::Vector2f(WeightFunction(distance1), WeightFunction(distance2)).normalized();
+        }
+    }
+    else
+    {
+        // Give more weight to joint 2
+        if (distance1 > distanceThreshold)
+        {
+            // Distance 1 is too big, give only to 2
+            return {0, 1};
+        }
+        else
+        {
+            return Eigen::Vector2f(WeightFunction(distance1), WeightFunction(distance2)).normalized();
+        }
+    }
+}
+
 void BasicScene::Init(float fov, int width, int height, float near, float far)
 {
     DISPLAY_HEIGHT = height;
@@ -844,19 +883,21 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
     for (size_t i = 0; i < V.rows(); i++)
     {
         Eigen::Vector3f v = V.row(i).cast<float>().eval();
-        // Eigen::Vector4f v2 = snake->GetAggregatedTransform() * Eigen::Vector4f{v[0],v[1],v[2],1.0f};
-        // Eigen::Vector3f posV = {v2[0],v2[1],v2[2]};
         auto res = getDistanceFromColsestJoints(v, C);
-        if (res[0] < res[1])
-        {
-            W.row(i)[(int)res[0]] = 1;
-        }
-        else
-        {
-            W.row(i)[(int)res[1]] = 1;
-        }
-        // W.row(i)[(int)res[0]] = (double)(res[2] / (res[2] + res[3]));
-        // W.row(i)[(int)res[1]] = (double)(res[3] / (res[2] + res[3]));
+        auto weights = CalculateWeightByDistances(res[0], res[2], res[1], res[3]);
+        W.row(i)[(int)res[0]] = weights[0];
+        W.row(i)[(int)res[1]] = weights[1];
+        // if (res[0] < res[1])
+        // {
+        //     W.row(i)[(int)res[0]] = (double)(res[2] * 3 / (res[2] * 3 + res[3]));
+        //     W.row(i)[(int)res[1]] = (double)(res[3] / (res[2] * 3 + res[3]));
+        // }
+        // else
+        // {
+        //     W.row(i)[(int)res[0]] = (double)(res[2] / (res[2] + res[3] * 3));
+        //     W.row(i)[(int)res[1]] = (double)(res[3] * 3 / (res[2] + res[3] * 3));
+        // }
+        // W.row(i).normalize();
         // W.row(i)[(int)res[0]] = 0.5;
         // W.row(i)[(int)res[1]] = 0.5;
     }
@@ -999,7 +1040,7 @@ void BasicScene::endInvisAbility()
 Eigen::Vector4f BasicScene::getDistanceFromColsestJoints(Eigen::Vector3f posV, Eigen::MatrixXd C)
 {
     std::vector<float> distances(C.rows()); // Vector to store distances from posV to each joint
-    for (int i = 0; i < C.rows(); i++)
+    for (int i = 0; i < C.rows() - 1; i++)
     {
         Eigen::Vector3f posC_float = C.row(i).cast<float>().eval();
         distances[i] = (posV - posC_float).norm(); // Euclidean distance from posV to joint i
@@ -1011,7 +1052,7 @@ Eigen::Vector4f BasicScene::getDistanceFromColsestJoints(Eigen::Vector3f posV, E
     {
         std::swap(idx_closest, idx_second_closest);
     }
-    for (int i = 2; i < C.rows(); i++)
+    for (int i = 2; i < C.rows() - 1; i++)
     {
         if (distances[i] < distances[idx_closest])
         {
