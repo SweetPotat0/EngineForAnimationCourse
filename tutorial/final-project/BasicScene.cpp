@@ -139,13 +139,13 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
         case GLFW_KEY_A:
             if (!paused){
                 // links[picked_index]->Rotate(-0.1,Axis::Z);
-                links[3]->Model->RotateInSystem(system, -0.1, Axis::Z);
+                links[3]->Model->Rotate( -0.1, Axis::Y);
             }
             break;
         case GLFW_KEY_D:
             if (!paused){
                 // links[picked_index]->Rotate(0.1,Axis::Z);
-                links[3]->Model->RotateInSystem(system, 0.1, Axis::Z);
+                links[3]->Model->Rotate( 0.1, Axis::Y);
             }
             break;
         case GLFW_KEY_E:
