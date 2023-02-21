@@ -87,6 +87,7 @@
         "ranges": "cpp",
         "span": "cpp",
         "*.expression": "cpp",
-        "fft": "cpp"
+        "fft": "cpp",
+        "*.rh": "cpp"
     }
 }

@@ -11,4 +11,5 @@ class SnakePoint : public Collidable
 public:
     SnakePoint(std::shared_ptr<cg3d::Model> Model, int Score);
     int Score;
+    void moveToNewPosition(Eigen::Vector3f newPos, Eigen::Vector3f headPos);
 };

@@ -1,14 +1,12 @@
 #include "./Enemy.h"
 #include "./Collidable.h"
 #include "./BasicScene.h"
-Enemy::Enemy(std::shared_ptr<cg3d::Model> Model, Eigen::Vector3f toOrigin, float moveSpeed, Eigen::Vector3f startinPosition) 
-: Collidable(Model), toOrigin(toOrigin), moveSpeed(moveSpeed), startinPosition(startinPosition)
-{
-    Model->Translate(toOrigin);
-}
+Enemy::Enemy(std::shared_ptr<cg3d::Model> Model, float moveSpeed, float spinSpeed, Eigen::Vector3f startinPosition) 
+: Collidable(Model), moveSpeed(moveSpeed),spinSpeed(spinSpeed), startinPosition(startinPosition)
+{}
 bool Enemy::ifReachedDest(){
-    return (((Model->GetTranslation() - toOrigin) - destination).norm() <= moveSpeed);
+    return (((Model->GetTranslation()) - destination).norm() <= moveSpeed);
 }
 void Enemy::moveTowardsDest(){
-    Model->Translate((destination - (Model->GetTranslation() - toOrigin)).normalized() * moveSpeed);
+    Model->Translate((destination - (Model->GetTranslation())).normalized() * moveSpeed);
 }
