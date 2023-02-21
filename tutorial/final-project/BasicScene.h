@@ -82,7 +82,7 @@ private:
     float delta = 0.05f;
     int playingLevel = 0;
     int levelScore = 0;
-    float movementSpeed = 0.01f;
+    float movementSpeed = 0.02f;
     std::chrono::steady_clock::time_point gameTime;
     std::chrono::seconds gameDuration = std::chrono::seconds(120);
     Ability boostAbility = Ability(15, 5);

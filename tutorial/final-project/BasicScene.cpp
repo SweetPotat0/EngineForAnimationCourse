@@ -72,7 +72,7 @@ void BasicScene::animation()
     if (invisAbility.didAbilityEnd())
         endInvisAbility();
 
-    Eigen::MatrixX3f system = Eigen::Affine3f(links[links.size() - 1]->Model->GetAggregatedTransform()).rotation().transpose();
+    Eigen::MatrixX3f system = Eigen::Affine3f(links[links.size() / 2]->Model->GetAggregatedTransform()).rotation().transpose();
     snake->TranslateInSystem(system, Eigen::Vector3f(0, 0, movementSpeed));
     CheckPointCollisions();
     if (playingLevel == 2)
@@ -92,12 +92,12 @@ void BasicScene::AnimateSnakeSkeleton()
     // Animate Skin
     RotationList anim_pose(links.size());
 
-    float step = 0.01f;
+    float step = 0.1f;
     for (size_t i = links.size() - 1; i > 0; i--)
     {
         auto sonQuaternion = Eigen::Quaternionf(links[i]->Model->GetTout().rotation());
         sonQuaternion.normalize();
-        auto midQ = Eigen::Quaternionf::Identity().slerp(step, sonQuaternion).normalized();
+        auto midQ = Eigen::Quaternionf::Identity().slerp(movementSpeed * 2, sonQuaternion).normalized();
         links[i - 1]->Model->Rotate(midQ.toRotationMatrix());
         links[i]->Model->Rotate(midQ.conjugate().toRotationMatrix());
     }
@@ -112,7 +112,6 @@ void BasicScene::AnimateSnakeSkeleton()
     std::vector<Eigen::Vector3d> vT;
 
     igl::forward_kinematics(C, BE, P, anim_pose, vQ, vT);
-
 
     igl::dqs(V, W, vQ, vT, U);
     Eigen::MatrixXd N;
@@ -283,33 +282,24 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
     {
         if (wasd[0])
         {
-
-            // links[0]->Rotate(0.1, Axis::X);
             float angle_radians = rotationAngle * M_PI / 180.0f;
-            links[3]->Model->Rotate(Eigen::Quaternionf(cos(angle_radians / 2.0), sin(angle_radians / 2.0), 0.0, 0.0).toRotationMatrix());
-            // links[3]->Model->RotateInSystem(system, 0.1, Axis::X);
+            links[links.size() - 1]->Model->Rotate(Eigen::Quaternionf(cos(angle_radians / 2.0), sin(angle_radians / 2.0), 0.0, 0.0).toRotationMatrix());
         }
         if (wasd[1])
         {
-            // links[picked_index]->Rotate(-0.1,Axis::Z);
-            // links[3]->Model->Rotate(-0.1, Axis::Y);
             float angle_radians = -rotationAngle * M_PI / 180.0f;
-            links[3]->Model->Rotate(Eigen::Quaternionf(cos(angle_radians / 2.0), 0.0, sin(angle_radians / 2.0), 0.0).toRotationMatrix());
+            links[links.size() - 1]->Model->Rotate(Eigen::Quaternionf(cos(angle_radians / 2.0), 0.0, sin(angle_radians / 2.0), 0.0).toRotationMatrix());
         }
         if (wasd[2])
         {
 
-            // links[0]->Rotate(-0.1, Axis::X);
-            // links[3]->Model->RotateInSystem(system, -0.1, Axis::X);
             float angle_radians = -rotationAngle * M_PI / 180.0f;
-            links[3]->Model->Rotate(Eigen::Quaternionf(cos(angle_radians / 2.0), sin(angle_radians / 2.0), 0.0, 0.0).toRotationMatrix());
+            links[links.size() - 1]->Model->Rotate(Eigen::Quaternionf(cos(angle_radians / 2.0), sin(angle_radians / 2.0), 0.0, 0.0).toRotationMatrix());
         }
         if (wasd[3])
         {
-            // links[picked_index]->Rotate(0.1,Axis::Z);
-            // links[3]->Model->Rotate(0.1, Axis::Y);
             float angle_radians = rotationAngle * M_PI / 180.0f;
-            links[3]->Model->Rotate(Eigen::Quaternionf(cos(angle_radians / 2.0), 0.0, sin(angle_radians / 2.0), 0.0).toRotationMatrix());
+            links[links.size() - 1]->Model->Rotate(Eigen::Quaternionf(cos(angle_radians / 2.0), 0.0, sin(angle_radians / 2.0), 0.0).toRotationMatrix());
         }
     }
 }
@@ -868,8 +858,8 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
 
     sceneRoot->AddChild(root);
 
-    int linksCount = 4;
-    linkSize = linkSize * 0.25;
+    int linksCount = 16;
+    linkSize = linkSize * 4 / linksCount;
     auto snakeMesh{IglLoader::MeshLoader2("snake", "data/snake1.obj")};
     snake = cg3d::Model::Create("snake", snakeMesh, snakeSkin);
     snake->showWireframe = true;
@@ -892,11 +882,13 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
 
     links.push_back(std::make_shared<Collidable>(cg3d::Model::Create("link 0", cylMesh, snakeSkin)));
     links[0]->Model->showWireframe = true;
-    links[0]->Model->Translate(-linkSize * linksCount / 2, Axis::Z);
-    links[0]->Model->Translate(linkSize / 2, Axis::Z);
-    links[0]->Model->SetCenter(Eigen::Vector3f(0, 0, -linkSize / 2));
-    links[0]->Model->Scale(0.25);
+    links[0]->Model->Translate(-linkSize * linksCount / 2.0, Axis::Z);
+    links[0]->Model->Translate(linkSize / 2.0, Axis::Z);
+    links[0]->Model->SetCenter(Eigen::Vector3f(0, 0, -linkSize / 2.0));
+    links[0]->Model->Scale(linkSize / 1.6);
     snake->AddChild(links[0]->Model);
+    snake->Scale(linkSize / 1.6);
+    snake->Scale(linksCount,Movable::Axis::Z);
     // links[0]->Model->isHidden = true;
     // Eigen::Vector4f a = links[0]->Model->GetAggregatedTransform() * Eigen::Vector4f{0,0,0,1};
     // C.row(0) << a[0],a[1],a[2];
@@ -908,16 +900,16 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
         links.push_back(std::make_shared<Collidable>(cg3d::Model::Create("link " + std::to_string(i), cylMesh, snakeSkin)));
         links[i]->Model->showWireframe = true;
         links[i]->Model->Translate(linkSize, Axis::Z);
-        links[i]->Model->SetCenter(Eigen::Vector3f(0, 0, -linkSize / 2));
+        links[i]->Model->SetCenter(Eigen::Vector3f(0, 0, -linkSize / 2.0f));
         links[i - 1]->Model->AddChild(links[i]->Model);
-        links[i]->Model->Scale(0.25);
+        links[i]->Model->Scale(linkSize / 1.6);
         // axis.push_back(Model::Create("axis of link " + std::to_string(i - 1), coordsys, axis_material));
         // axis[i]->mode = 1;
         // links[i - 1]->Model->AddChild(axis[i]);
         // axis[i]->SetTout(Eigen::Affine3f::Identity());
         // links[i]->Model->isHidden = true;
 
-        C.row(i) << 0, 0, linkSize * ((int)(i - (linksCount / 2)));
+        C.row(i) << 0, 0, linkSize * ((int)(i - (linksCount / 2.0f)));
         BE.row(i) << i, i + 1;
     }
 
@@ -965,20 +957,20 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
         // W.row(i)[(int)res[1]] = 0.5;
     }
 
-    igl::directed_edge_orientations(C, BE, rest_pose);
-    poses.resize((C.rows() - 1) * 4, RotationList(C.rows() - 1, Eigen::Quaterniond::Identity()));
-    const Eigen::Quaterniond twist(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
-    const Eigen::Quaterniond bend(Eigen::AngleAxisd(M_PI * 0.7, Eigen::Vector3d(0, 1, 0)));
+    // igl::directed_edge_orientations(C, BE, rest_pose);
+    // poses.resize((C.rows() - 1) * 4, RotationList(C.rows() - 1, Eigen::Quaterniond::Identity()));
+    // const Eigen::Quaterniond twist(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
+    // const Eigen::Quaterniond bend(Eigen::AngleAxisd(M_PI * 0.7, Eigen::Vector3d(0, 1, 0)));
 
-    for (size_t i = 0; i < C.rows() - 1; i++)
-    {
-        poses[i * 4 + 1][i] = rest_pose[i] * twist * rest_pose[i].conjugate();
-        // int indexToMoveBy = i == 0 ? 0 : i - 1;
-        poses[i * 4 + 3][i] = rest_pose[i] * bend * rest_pose[i].conjugate();
-        std::cout << "Moving index " << i << std::endl;
-        std::cout << "Twist Quaternion: " << poses[i * 4 + 1][i].vec().transpose() << std::endl;
-        std::cout << "Bend Quaternion: " << poses[i * 4 + 3][i].vec().transpose() << std::endl;
-    }
+    // for (size_t i = 0; i < C.rows() - 1; i++)
+    // {
+    //     poses[i * 4 + 1][i] = rest_pose[i] * twist * rest_pose[i].conjugate();
+    //     // int indexToMoveBy = i == 0 ? 0 : i - 1;
+    //     poses[i * 4 + 3][i] = rest_pose[i] * bend * rest_pose[i].conjugate();
+    //     std::cout << "Moving index " << i << std::endl;
+    //     std::cout << "Twist Quaternion: " << poses[i * 4 + 1][i].vec().transpose() << std::endl;
+    //     std::cout << "Bend Quaternion: " << poses[i * 4 + 3][i].vec().transpose() << std::endl;
+    // }
 
     // poses[3][2] = poses[3][jointIndex].conjugate();
     // poses[3][2] = poses[3][1].conjugate();
