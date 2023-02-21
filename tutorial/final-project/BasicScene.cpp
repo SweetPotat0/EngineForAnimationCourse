@@ -1,6 +1,5 @@
 #define _USE_MATH_DEFINES
 
-
 #include "./BasicScene.h"
 #include <read_triangle_mesh.h>
 #include <utility>
@@ -34,30 +33,49 @@ using namespace cg3d;
 
 void BasicScene::animation()
 {
-    if (std::chrono::steady_clock::now() - gameTime > gameDuration){
+    if (std::chrono::steady_clock::now() - gameTime > gameDuration)
+    {
         std::cout << "GAME OVER" << std::endl;
         gameState = GameState::AfterLevel;
         animate = false;
         paused = true;
     }
 
-    if (boostAbility.didAbilityEnd()) endBoostAbility();
-    if (invisAbility.didAbilityEnd()) endInvisAbility();
+    AnimateSnakeSkeleton();
 
-    pointModel->RotateInSystem(Eigen::Matrix3f::Identity(),0.02f,Axis::Z);
+    if (boostAbility.didAbilityEnd())
+        endBoostAbility();
+    if (invisAbility.didAbilityEnd())
+        endInvisAbility();
+
+    pointModel->RotateInSystem(Eigen::Matrix3f::Identity(), 0.02f, Axis::Z);
     Eigen::MatrixX3f system = Eigen::Affine3f(links[3]->Model->GetAggregatedTransform()).rotation().transpose();
     links[0]->Model->TranslateInSystem(system, Eigen::Vector3f(0, 0, movementSpeed));
     CheckPointCollisions();
     if (playingLevel == 2)
     {
         // enemyModel->RotateByDegree(0.5f,Axis::Z);
-        for (size_t i = 0; i < enemies.size(); i++){
-            enemies[i]->Model->Rotate(enemies[i]->spinSpeed,Axis::Z);
+        for (size_t i = 0; i < enemies.size(); i++)
+        {
+            enemies[i]->Model->Rotate(enemies[i]->spinSpeed, Axis::Z);
             if (enemies[i]->ifReachedDest())
-                enemies[i]->destination = GenerateRandomPoint(BasicScene::camList[2],5,35);
+                enemies[i]->destination = GenerateRandomPoint(BasicScene::camList[2], 5, 35);
             enemies[i]->moveTowardsDest();
         }
         CheckEnemyCollisions();
+    }
+}
+
+void BasicScene::AnimateSnakeSkeleton()
+{
+    float step = 0.01f;
+    for (size_t i = links.size() - 1; i > 0; i--)
+    {
+        auto sonQuaternion = Eigen::Quaternionf(links[i]->Model->GetTout().rotation());
+        sonQuaternion.normalize();
+        auto midQ = Eigen::Quaternionf::Identity().slerp(step, sonQuaternion);
+        links[i - 1]->Model->Rotate(midQ.toRotationMatrix());
+        links[i]->Model->Rotate(midQ.conjugate().toRotationMatrix());
     }
 }
 
@@ -72,13 +90,12 @@ void BasicScene::CheckPointCollisions()
         {
             // Hit
             PlaySound("data/PointSound.wav", NULL, SND_FILENAME | SND_ASYNC);
-            
+
             free(collidingOBB);
             std::cout << "You hit! Earned " << point->Score << " points!" << std::endl;
             levelScore += point->Score;
 
-            point->moveToNewPosition(GenerateRandomPoint(camList[2],5,35), links[links.size() - 1]->Model->GetTranslation());
-
+            point->moveToNewPosition(GenerateRandomPoint(camList[2], 5, 35), links[links.size() - 1]->Model->GetTranslation());
         }
     }
 }
@@ -90,7 +107,8 @@ void BasicScene::CheckEnemyCollisions()
         for (size_t j = 0; j < links.size() && !foundCollision; j++)
         {
             auto collidingOBB = links[j]->getCollidingOBB(enemies[i]);
-            if (collidingOBB != NULL){
+            if (collidingOBB != NULL)
+            {
                 // Hit
                 PlaySound("data/SwordSound.wav", NULL, SND_FILENAME | SND_ASYNC);
                 free(collidingOBB);
@@ -103,15 +121,30 @@ void BasicScene::CheckEnemyCollisions()
     }
 }
 
+Eigen::Quaternionf get_rotation_quaternion(const Eigen::Quaternionf &fatherQ, const Eigen::Quaternionf &sonQ)
+{
+    // Normalize the input quaternions
+    Eigen::Quaternionf fatherQ_normalized = fatherQ.normalized();
+    Eigen::Quaternionf sonQ_normalized = sonQ.normalized();
+
+    // Compute the quaternion representing the rotation from fatherQ to sonQ
+    Eigen::Quaternionf rotationQ = sonQ_normalized * fatherQ_normalized.conjugate();
+
+    return rotationQ;
+}
+
 void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, int scancode, int action, int mods)
 {
+    static bool wasd[4];
+    auto rotationAngle = 2.0f;
     auto system = camList[1]->GetRotation().transpose();
     // Eigen::Matrix3f system2 = Eigen::Affine3f::Identity();
     Eigen::Vector3f pos, angles;
-    Eigen::Vector3f a,b;
+    Eigen::Vector3f a, b;
 
     if (action == GLFW_PRESS || action == GLFW_REPEAT)
     {
+
         switch (key) // NOLINT(hicpp-multiway-paths-covered)
         {
         case GLFW_KEY_SPACE:
@@ -125,31 +158,20 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
             animate = false;
             break;
         case GLFW_KEY_W:
-            if (!paused){
-                // links[0]->Rotate(0.1, Axis::X);
-                links[3]->Model->RotateInSystem(system, 0.1, Axis::X);
-            }
-            break;
-        case GLFW_KEY_S:
-            if (!paused){
-                // links[0]->Rotate(-0.1, Axis::X);
-                links[3]->Model->RotateInSystem(system, -0.1, Axis::X);
-            }
+            wasd[0] = true;
             break;
         case GLFW_KEY_A:
-            if (!paused){
-                // links[picked_index]->Rotate(-0.1,Axis::Z);
-                links[3]->Model->Rotate( -0.1, Axis::Y);
-            }
+            wasd[1] = true;
+            break;
+        case GLFW_KEY_S:
+            wasd[2] = true;
             break;
         case GLFW_KEY_D:
-            if (!paused){
-                // links[picked_index]->Rotate(0.1,Axis::Z);
-                links[3]->Model->Rotate( 0.1, Axis::Y);
-            }
+            wasd[3] = true;
             break;
         case GLFW_KEY_E:
-            if (!paused){
+            if (!paused)
+            {
                 if (boostAbility.canUse())
                 {
                     useBoostAbility();
@@ -158,7 +180,8 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
             }
             break;
         case GLFW_KEY_Q:
-            if (!paused){
+            if (!paused)
+            {
                 if (invisAbility.canUse())
                 {
                     useInvisAbility();
@@ -168,7 +191,6 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
             }
             break;
 
-                
         case GLFW_KEY_1:
             if (!paused)
                 SetCamera(0);
@@ -181,21 +203,71 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
             if (!paused)
                 SetCamera(2);
             break;
-        // case GLFW_KEY_UP:
-        // enemyModel->RotateByDegree(10.0f,Axis::Z);
-        // break;
-        // case GLFW_KEY_DOWN:
-        // enemy->Translate({0,0,-0.5});
-        // break;
-        // case GLFW_KEY_LEFT:
-        // enemy->Translate({-0.5,0,0});
-        // break;
-        // case GLFW_KEY_RIGHT:
-        // enemy->Translate({0.5,0,0});
-        // break;
+            // case GLFW_KEY_UP:
+            // enemyModel->RotateByDegree(10.0f,Axis::Z);
+            // break;
+            // case GLFW_KEY_DOWN:
+            // enemy->Translate({0,0,-0.5});
+            // break;
+            // case GLFW_KEY_LEFT:
+            // enemy->Translate({-0.5,0,0});
+            // break;
+            // case GLFW_KEY_RIGHT:
+            // enemy->Translate({0.5,0,0});
+            // break;
         }
-        
-        
+    }
+    else if (action == GLFW_RELEASE)
+    {
+        switch (key)
+        {
+        case GLFW_KEY_W:
+            wasd[0] = false;
+            break;
+        case GLFW_KEY_A:
+            wasd[1] = false;
+            break;
+        case GLFW_KEY_S:
+            wasd[2] = false;
+            break;
+        case GLFW_KEY_D:
+            wasd[3] = false;
+            break;
+        }
+    }
+
+    if (!paused)
+    {
+        if (wasd[0])
+        {
+
+            // links[0]->Rotate(0.1, Axis::X);
+            float angle_radians = rotationAngle * M_PI / 180.0f;
+            links[3]->Model->Rotate(Eigen::Quaternionf(cos(angle_radians / 2.0), sin(angle_radians / 2.0), 0.0, 0.0).toRotationMatrix());
+            // links[3]->Model->RotateInSystem(system, 0.1, Axis::X);
+        }
+        if (wasd[1])
+        {
+            // links[picked_index]->Rotate(-0.1,Axis::Z);
+            // links[3]->Model->Rotate(-0.1, Axis::Y);
+            float angle_radians = -rotationAngle * M_PI / 180.0f;
+            links[3]->Model->Rotate(Eigen::Quaternionf(cos(angle_radians / 2.0), 0.0, sin(angle_radians / 2.0), 0.0).toRotationMatrix());
+        }
+        if (wasd[2])
+        {
+
+            // links[0]->Rotate(-0.1, Axis::X);
+            // links[3]->Model->RotateInSystem(system, -0.1, Axis::X);
+            float angle_radians = -rotationAngle * M_PI / 180.0f;
+            links[3]->Model->Rotate(Eigen::Quaternionf(cos(angle_radians / 2.0), sin(angle_radians / 2.0), 0.0, 0.0).toRotationMatrix());
+        }
+        if (wasd[3])
+        {
+            // links[picked_index]->Rotate(0.1,Axis::Z);
+            // links[3]->Model->Rotate(0.1, Axis::Y);
+            float angle_radians = rotationAngle * M_PI / 180.0f;
+            links[3]->Model->Rotate(Eigen::Quaternionf(cos(angle_radians / 2.0), 0.0, sin(angle_radians / 2.0), 0.0).toRotationMatrix());
+        }
     }
 }
 
@@ -222,7 +294,6 @@ void BasicScene::ScrollCallback(Viewport *viewport, int x, int y, int xoffset, i
     {
         camera->TranslateInSystem(system, {0, 0, -float(yoffset)});
         cameraToutAtPress = camera->GetTout();
-
     }
 }
 
@@ -363,7 +434,8 @@ void cursorCentered(std::string text, float margin = 0)
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + margin);
 }
 
-void BasicScene::changeNextLevel(){
+void BasicScene::changeNextLevel()
+{
     switch (playingLevel)
     {
     case 0:
@@ -378,12 +450,13 @@ void BasicScene::changeNextLevel(){
     case 3:
         gameState = GameState::Level1;
         break;
-    
+
     default:
         break;
     }
 }
-void BasicScene::startLevel(int level){
+void BasicScene::startLevel(int level)
+{
     playingLevel = level;
     levelScore = 0;
     animate = true;
@@ -393,11 +466,11 @@ void BasicScene::startLevel(int level){
     switch (level)
     {
     case 1:
-        for (size_t i = 0; i < points.size(); i++){// reset points
+        for (size_t i = 0; i < points.size(); i++)
+        { // reset points
             points[i]->Model->isHidden = false;
             // points[i]->Model->SetTout(Eigen::Affine3f::Identity());
-            points[i]->moveToNewPosition(GenerateRandomPoint(camList[2],5,35),links[links.size() - 1]->Model->GetTranslation());
-            
+            points[i]->moveToNewPosition(GenerateRandomPoint(camList[2], 5, 35), links[links.size() - 1]->Model->GetTranslation());
         }
         links[0]->Model->Translate(-links[0]->Model->GetTranslation()); // reset snake
         for (size_t i = 0; i < links.size(); i++)
@@ -408,18 +481,19 @@ void BasicScene::startLevel(int level){
         for (size_t i = 0; i < points.size(); i++) // reset points
             points[i]->Model->isHidden = false;
 
-        links[0]->Model->Translate(-links[0]->Model->GetTranslation());// reset snake
+        links[0]->Model->Translate(-links[0]->Model->GetTranslation()); // reset snake
         for (size_t i = 0; i < links.size(); i++)
             links[i]->Model->Rotate(links[i]->Model->GetRotation().matrix().inverse());
 
-        for (size_t i = 0; i < enemies.size(); i++){ // reset enemies
+        for (size_t i = 0; i < enemies.size(); i++)
+        { // reset enemies
             enemies[i]->Model->isHidden = false;
             enemies[i]->Model->Translate(enemies[i]->startinPosition);
-            enemies[i]->destination = GenerateRandomPoint(BasicScene::camList[2],5,35);
+            enemies[i]->destination = GenerateRandomPoint(BasicScene::camList[2], 5, 35);
         }
         gameTime = std::chrono::steady_clock::now();
         break;
-    
+
     default:
         break;
     }
@@ -446,9 +520,8 @@ void BasicScene::BuildImGui()
         if (ImGui::Button("Start Game"))
         {
             gameState = GameState::Level1;
-            
+
             // PlaySound("C:\\Users\\ido\\Downloads\\Run-Amok.wav", NULL, SND_FILENAME | SND_ASYNC | SND_LOOP);
-            
         }
         cursorCentered("Quit Game", 25);
         if (ImGui::Button("Quit Game"))
@@ -534,24 +607,24 @@ void BasicScene::BuildImGui()
 
         unsigned int color;
         if (boostAbility.inUse)
-            color = IM_COL32(128,128,128,255);
+            color = IM_COL32(128, 128, 128, 255);
         else if (boostAbility.canUse())
-            color = IM_COL32(0,255,0,255);
+            color = IM_COL32(0, 255, 0, 255);
         else
-            color = IM_COL32(255,0,0,255);
-        
+            color = IM_COL32(255, 0, 0, 255);
+
         ImGui::PushStyleColor(ImGuiCol_Text, color);
         ImGui::Text("Boost");
         ImGui::PopStyleColor();
         ImGui::SameLine();
 
         if (invisAbility.inUse)
-            color = IM_COL32(128,128,128,255);
+            color = IM_COL32(128, 128, 128, 255);
         else if (invisAbility.canUse())
-            color = IM_COL32(0,255,0,255);
+            color = IM_COL32(0, 255, 0, 255);
         else
-            color = IM_COL32(255,0,0,255);
-        
+            color = IM_COL32(255, 0, 0, 255);
+
         ImGui::PushStyleColor(ImGuiCol_Text, color);
         ImGui::Text("Ghost");
         ImGui::PopStyleColor();
@@ -569,7 +642,7 @@ void BasicScene::BuildImGui()
         std::string scoreStr = "Score: ";
         scoreStr = scoreStr + std::to_string(levelScore);
         TextCentered(scoreStr.c_str(), 30);
-        
+
         cursorCentered("Restart Level", 30);
         if (ImGui::Button("Restart Level"))
         {
@@ -629,7 +702,7 @@ void BasicScene::BuildImGui()
             animate = true;
             paused = false;
         }
-        
+
         cursorCentered("Quit Game", 10);
         if (ImGui::Button("Quit Game"))
         {
@@ -661,7 +734,6 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     auto program = std::make_shared<Program>("shaders/basicShader");
     auto program1 = std::make_shared<Program>("shaders/axisShader");
     auto program2 = std::make_shared<Program>("shaders/basicShader1");
-    auto program3 = std::make_shared<Program>("shaders/basicShader3");
     auto material = std::make_shared<Material>("material", program);
     auto paintedEgg{std::make_shared<Material>("paintedEgg", program)};
     snakeSkin = std::make_shared<Material>("snakeSkin", program);
@@ -679,7 +751,7 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     auto PointMesh{IglLoader::MeshLoader2("eggPoint", "data/egg.obj")};
     auto cylMesh{IglLoader::MeshLoader2("cyl_igl", "data/zcylinder.obj")};
     auto sphereMesh{IglLoader::MeshFromFiles("sphere_igl", "data/sphere.obj")};
-    
+
     auto coordsys = Mesh::Axis();
 
     sceneRoot = cg3d::Model::Create("sroot", sphereMesh, material);
@@ -769,20 +841,18 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     sceneRoot->AddChild(pointModel);
     pointModel->isHidden = true;
     points.push_back(std::make_shared<SnakePoint>(pointModel, 0));
-    pointModel->RotateByDegree(165.0f,Axis::Y);
-    
+    pointModel->RotateByDegree(165.0f, Axis::Y);
 
     enemyModel = cg3d::Model::Create("Enemy", EnemyMesh, swordTex);
     enemyModel->Scale(0.2f);
     enemyModel->isHidden = true;
     sceneRoot->AddChild(enemyModel);
-    enemies.push_back(std::make_shared<Enemy>(enemyModel,0.05, 0.01,Eigen::Vector3f{5,0,0}));
-    
+    enemies.push_back(std::make_shared<Enemy>(enemyModel, 0.05, 0.01, Eigen::Vector3f{5, 0, 0}));
 }
 
 void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, const Eigen::Matrix4f &view, const Eigen::Matrix4f &model)
 {
-    
+
     Scene::Update(program, proj, view, model);
     static int frameCount = 0;
     if (strcmp(program.name.c_str(), "axis-material") == 0)
@@ -795,47 +865,50 @@ void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, con
     // }
 }
 
-
 // Generate a random point within the camera's field of view
-Eigen::Vector3f BasicScene::GenerateRandomPoint(std::shared_ptr<cg3d::Camera> camera, float near1, float far1) {
+Eigen::Vector3f BasicScene::GenerateRandomPoint(std::shared_ptr<cg3d::Camera> camera, float near1, float far1)
+{
     // Define a random number generator
     std::random_device rd;
     std::mt19937 gen(rd());
 
     // Generate a random point within the frustum defined by the camera's field of view
     float z = std::uniform_real_distribution<>(near1, far1)(gen);
-    float x = tan((camera->fov * (M_PI/180)) / 2) * z * camera->ratio;
-    float y = tan((camera->fov * (M_PI/180)) / 2) * z;
+    float x = tan((camera->fov * (M_PI / 180)) / 2) * z * camera->ratio;
+    float y = tan((camera->fov * (M_PI / 180)) / 2) * z;
 
     // Generate random x and y values proportional to the tangent of half the field of view and the distance from the camera to the point
     std::uniform_real_distribution<> dist1(-x, x);
     x = dist1(gen);
     std::uniform_real_distribution<> dist2(-y, y);
     y = dist2(gen);
-    
 
     // Transform the point from camera space to world space
     Eigen::Vector3f result = camera->GetTranslation() + camera->GetRotation() * Eigen::Vector3f(x, y, -z);
     return result;
 }
 
-void BasicScene::useBoostAbility(){
-    movementSpeed *=5;
+void BasicScene::useBoostAbility()
+{
+    movementSpeed *= 5;
     PlaySound("data/BoostSound.wav", NULL, SND_FILENAME | SND_ASYNC);
 }
 
-void BasicScene::endBoostAbility(){
-    movementSpeed /=5;
+void BasicScene::endBoostAbility()
+{
+    movementSpeed /= 5;
 }
 
-void BasicScene::useInvisAbility(){
+void BasicScene::useInvisAbility()
+{
     for (size_t i = 0; i < links.size(); i++)
     {
         links[i]->Model->material = snakeSkinTransparent;
     }
     PlaySound("data/GhostSound.wav", NULL, SND_FILENAME | SND_ASYNC);
 }
-void BasicScene::endInvisAbility(){
+void BasicScene::endInvisAbility()
+{
     for (size_t i = 0; i < links.size(); i++)
     {
         links[i]->Model->material = snakeSkin;
