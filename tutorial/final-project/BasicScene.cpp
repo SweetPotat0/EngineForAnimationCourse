@@ -57,27 +57,8 @@ Eigen::Matrix3f QuaternionToRotationMatrix(const Eigen::Quaterniond &q)
 
 void BasicScene::animation()
 {
-const int begin = (int)floor(anim_t) % poses.size();
-    const int end = (int)(floor(anim_t) + 1) % poses.size();
-    const double t = anim_t - floor(anim_t);
-    RotationList anim_pose(poses[begin].size());
-    for (int e = 0; e < poses[begin].size(); e++)
+    if (std::chrono::steady_clock::now() - gameTime > gameDuration)
     {
-        anim_pose[e] = poses[begin][e].slerp(t, poses[end][e]);
-    }
-    RotationList vQ;
-    std::vector<Eigen::Vector3d> vT;
-
-    igl::forward_kinematics(C, BE, P, anim_pose, vQ, vT);
-
-    igl::dqs(V, W, vQ, vT, U);
-    Eigen::MatrixXd N;
-    igl::per_vertex_normals(U, snake->GetMesh()->data[0].faces, N);
-    Mesh nextPose("snake", U, F, N, snake->GetMesh()->data[0].textureCoords);
-    snake->SetMeshList({std::make_shared<Mesh>(nextPose)});
-    anim_t += 0.15;
-
-    if (std::chrono::steady_clock::now() - gameTime > gameDuration){
         std::cout << "GAME OVER" << std::endl;
         gameState = GameState::AfterLevel;
         animate = false;
@@ -86,17 +67,20 @@ const int begin = (int)floor(anim_t) % poses.size();
 
     AnimateSnakeSkeleton();
 
-    if (boostAbility.didAbilityEnd()) endBoostAbility();
-    if (invisAbility.didAbilityEnd()) endInvisAbility();
+    if (boostAbility.didAbilityEnd())
+        endBoostAbility();
+    if (invisAbility.didAbilityEnd())
+        endInvisAbility();
 
-    Eigen::MatrixX3f system = Eigen::Affine3f(links[links.size()-1]->Model->GetAggregatedTransform()).rotation().transpose();
+    Eigen::MatrixX3f system = Eigen::Affine3f(links[links.size() - 1]->Model->GetAggregatedTransform()).rotation().transpose();
     snake->TranslateInSystem(system, Eigen::Vector3f(0, 0, movementSpeed));
     CheckPointCollisions();
     if (playingLevel == 2)
     {
-        for (size_t i = 0; i < enemies.size(); i++){
+        for (size_t i = 0; i < enemies.size(); i++)
+        {
             if (enemies[i]->ifReachedDest())
-                enemies[i]->destination = GenerateRandomPoint(BasicScene::camList[2],5,35);
+                enemies[i]->destination = GenerateRandomPoint(BasicScene::camList[2], 5, 35);
             enemies[i]->moveTowardsDest();
         }
         CheckEnemyCollisions();
@@ -105,15 +89,36 @@ const int begin = (int)floor(anim_t) % poses.size();
 
 void BasicScene::AnimateSnakeSkeleton()
 {
+    // Animate Skin
+    RotationList anim_pose(links.size());
+
     float step = 0.01f;
     for (size_t i = links.size() - 1; i > 0; i--)
     {
         auto sonQuaternion = Eigen::Quaternionf(links[i]->Model->GetTout().rotation());
         sonQuaternion.normalize();
-        auto midQ = Eigen::Quaternionf::Identity().slerp(step, sonQuaternion);
+        auto midQ = Eigen::Quaternionf::Identity().slerp(step, sonQuaternion).normalized();
         links[i - 1]->Model->Rotate(midQ.toRotationMatrix());
         links[i]->Model->Rotate(midQ.conjugate().toRotationMatrix());
     }
+
+    for (size_t i = 0; i < links.size(); i++)
+    {
+        auto qf = Eigen::Quaternionf(links[i]->Model->GetTout().rotation()).normalized();
+        anim_pose[i] = Eigen::Quaterniond(qf.w(), qf.x(), qf.y(), qf.z());
+    }
+
+    RotationList vQ;
+    std::vector<Eigen::Vector3d> vT;
+
+    igl::forward_kinematics(C, BE, P, anim_pose, vQ, vT);
+
+
+    igl::dqs(V, W, vQ, vT, U);
+    Eigen::MatrixXd N;
+    igl::per_vertex_normals(U, snake->GetMesh()->data[0].faces, N);
+    Mesh nextPose("snake", U, F, N, snake->GetMesh()->data[0].textureCoords);
+    snake->SetMeshList({std::make_shared<Mesh>(nextPose)});
 }
 
 void BasicScene::CheckPointCollisions()
@@ -796,7 +801,7 @@ Eigen::Vector2f CalculateWeightByDistances(int joint1Index, float distance1, int
     }
 }
 
-void BasicScene::Init(float fov, int width, int height, float near, float far)
+void BasicScene::Init(float fov, int width, int height, float near1, float far1)
 {
     DISPLAY_HEIGHT = height;
     DISPLAY_WIDTH = width;
@@ -865,7 +870,7 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
 
     int linksCount = 4;
     linkSize = linkSize * 0.25;
-    auto snakeMesh{IglLoader::MeshLoader2("snake", "data/snake2.obj")};
+    auto snakeMesh{IglLoader::MeshLoader2("snake", "data/snake1.obj")};
     snake = cg3d::Model::Create("snake", snakeMesh, snakeSkin);
     snake->showWireframe = true;
     snake->showFaces = false;
@@ -960,7 +965,6 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
         // W.row(i)[(int)res[1]] = 0.5;
     }
 
-    RotationList rest_pose;
     igl::directed_edge_orientations(C, BE, rest_pose);
     poses.resize((C.rows() - 1) * 4, RotationList(C.rows() - 1, Eigen::Quaterniond::Identity()));
     const Eigen::Quaterniond twist(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));

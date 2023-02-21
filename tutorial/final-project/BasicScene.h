@@ -50,6 +50,7 @@ public:
     Eigen::Vector3f getTipOfLink(int ind);
 
 private:
+    RotationList rest_pose;
     void AnimateSnakeSkeleton();
     void CheckPointCollisions();
     void CheckEnemyCollisions();
