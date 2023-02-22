@@ -88,7 +88,10 @@ private:
     Ability boostAbility = Ability(15, 5);
     Ability invisAbility = Ability(10, 3);
 
-    float linkSize = 1.6f;
+    int linksCount = 16;
+    float linkMeshSize = 1.6f;
+    int meshScaleMultiplier = 4;
+    float linkSize = linkMeshSize * meshScaleMultiplier / linksCount;
     Eigen::MatrixXd C,V,U,W;
     Eigen::MatrixXi BE,F;
     Eigen::VectorXi P;

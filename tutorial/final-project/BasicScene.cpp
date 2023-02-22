@@ -429,7 +429,7 @@ Eigen::Vector3f BasicScene::getTipOfLink(int ind)
     Eigen::Vector3f pos = std::move(root->GetTranslation());
     for (int i = 0; i <= ind; i++)
     {
-        pos += links[i]->Model->GetRotation() * Eigen::Vector3f{0, 0, 1.6f};
+        pos += links[i]->Model->GetRotation() * Eigen::Vector3f{0, 0, linkMeshSize};
     }
     return pos;
 }
@@ -791,6 +791,17 @@ Eigen::Vector2f CalculateWeightByDistances(int joint1Index, float distance1, int
     }
 }
 
+Eigen::MatrixXd scaleVertices(const Eigen::MatrixXd &vertices, const Eigen::Vector3d &scale)
+{
+    // Create a diagonal matrix with the scaling factors
+    Eigen::DiagonalMatrix<double, 3> scalingMatrix(scale);
+
+    // Apply the scaling to the vertices
+    Eigen::MatrixXd scaledVertices = vertices * scalingMatrix;
+
+    return scaledVertices;
+}
+
 void BasicScene::Init(float fov, int width, int height, float near1, float far1)
 {
     DISPLAY_HEIGHT = height;
@@ -858,8 +869,6 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
 
     sceneRoot->AddChild(root);
 
-    int linksCount = 16;
-    linkSize = linkSize * 4 / linksCount;
     auto snakeMesh{IglLoader::MeshLoader2("snake", "data/snake1.obj")};
     snake = cg3d::Model::Create("snake", snakeMesh, snakeSkin);
     snake->showWireframe = true;
@@ -885,14 +894,12 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     links[0]->Model->Translate(-linkSize * linksCount / 2.0, Axis::Z);
     links[0]->Model->Translate(linkSize / 2.0, Axis::Z);
     links[0]->Model->SetCenter(Eigen::Vector3f(0, 0, -linkSize / 2.0));
-    links[0]->Model->Scale(linkSize / 1.6);
+    links[0]->Model->Scale(linkSize / linkMeshSize);
     snake->AddChild(links[0]->Model);
-    snake->Scale(linkSize / 1.6);
-    snake->Scale(linksCount,Movable::Axis::Z);
-    // links[0]->Model->isHidden = true;
+    links[0]->Model->isHidden = true;
     // Eigen::Vector4f a = links[0]->Model->GetAggregatedTransform() * Eigen::Vector4f{0,0,0,1};
     // C.row(0) << a[0],a[1],a[2];
-    C.row(0) << 0, 0, -linkSize * (linksCount / 2);
+    C.row(0) << 0, 0, -(linkSize) * (linksCount / 2);
     BE.row(0) << 0, 1;
 
     for (size_t i = 1; i < linksCount; i++)
@@ -902,18 +909,18 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
         links[i]->Model->Translate(linkSize, Axis::Z);
         links[i]->Model->SetCenter(Eigen::Vector3f(0, 0, -linkSize / 2.0f));
         links[i - 1]->Model->AddChild(links[i]->Model);
-        links[i]->Model->Scale(linkSize / 1.6);
+        links[i]->Model->Scale(linkSize / linkMeshSize);
         // axis.push_back(Model::Create("axis of link " + std::to_string(i - 1), coordsys, axis_material));
         // axis[i]->mode = 1;
         // links[i - 1]->Model->AddChild(axis[i]);
         // axis[i]->SetTout(Eigen::Affine3f::Identity());
-        // links[i]->Model->isHidden = true;
+        links[i]->Model->isHidden = true;
 
-        C.row(i) << 0, 0, linkSize * ((int)(i - (linksCount / 2.0f)));
+        C.row(i) << 0, 0, (linkSize) * ((int)(i - (linksCount / 2.0f)));
         BE.row(i) << i, i + 1;
     }
 
-    C.row(linksCount) << 0, 0, linkSize * ((int)(linksCount / 2));
+    C.row(linksCount) << 0, 0, (linkSize) * ((int)(linksCount / 2));
 
     std::cout << "link size: " << linkSize << std::endl;
     std::cout << "C: " << std::endl
@@ -921,7 +928,7 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     std::cout << "BE: " << std::endl
               << BE << std::endl;
 
-    V = snakeMesh->data[0].vertices;
+    V = scaleVertices(snakeMesh->data[0].vertices, {linkSize / linkMeshSize, linkSize / linkMeshSize, linkSize * linksCount / linkMeshSize});
     // for (size_t i = 0; i < V.rows(); i++)
     // {
     //     V.row(i) << V.row(i)[0] + ,0,0;
@@ -1002,8 +1009,8 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     // sceneRoot->RotateByDegree(-90, Axis::X);
 
     // Third Person
-    camList[0]->Translate(-10, Axis::Z);
-    camList[0]->Translate(-5, Axis::Y);
+    camList[0]->Translate(-3, Axis::Z);
+    camList[0]->Translate(-2, Axis::Y);
     camList[0]->RotateByDegree(158.5, Eigen::Vector3f(1, 0, 0));
 
     float firstPersonOffset = 1;
