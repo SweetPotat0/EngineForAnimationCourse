@@ -51,6 +51,7 @@ public:
 
 private:
     RotationList rest_pose;
+    void AddLinkToSnake();
     void AnimateSnakeSkeleton();
     void CheckPointCollisions();
     void CheckEnemyCollisions();
@@ -58,6 +59,7 @@ private:
     void useInvisAbility();
     void endBoostAbility();
     void endInvisAbility();
+    Eigen::Vector2f CalculateWeightByDistances(int joint1Index, float distance1, int joint2Index, float distance2);
     Eigen::Vector4f getDistanceFromColsestJoints(Eigen::Vector3f posV, Eigen::MatrixXd C);
     int DISPLAY_WIDTH = 0;
     int DISPLAY_HEIGHT = 0;
@@ -70,7 +72,7 @@ private:
     void BuildImGui() override;
     std::vector<std::shared_ptr<cg3d::Camera>> camList;
     std::vector<std::shared_ptr<cg3d::Model>> axis, axis1;
-    std::vector<std::shared_ptr<Collidable>> links;
+    std::vector<std::shared_ptr<Collidable>> links, spareLinks;
     std::shared_ptr<cg3d::Model> pointModel,enemyModel, root, sceneRoot, snake;
     igl::AABB<Eigen::MatrixXd,3> treeSnakeHead;
     std::vector<std::shared_ptr<SnakePoint>> points;
@@ -82,16 +84,21 @@ private:
     float delta = 0.05f;
     int playingLevel = 0;
     int levelScore = 0;
-    float movementSpeed = 0.02f;
+    float movementSpeed = 0.04f;
     std::chrono::steady_clock::time_point gameTime;
-    std::chrono::seconds gameDuration = std::chrono::seconds(120);
+    std::chrono::seconds gameDuration = std::chrono::seconds(1000);
     Ability boostAbility = Ability(15, 5);
     Ability invisAbility = Ability(10, 3);
 
-    int linksCount = 16;
+    int startLinksCount = 4;
+    int linksCount = startLinksCount;
+    int maxLinksCount = 16;
+
+    //Link mesh and model scaling
     float linkMeshSize = 1.6f;
-    int meshScaleMultiplier = 4;
-    float linkSize = linkMeshSize * meshScaleMultiplier / linksCount;
+    int meshScaleMultiplier = 1;
+    float linkSize = linkMeshSize * meshScaleMultiplier;
+
     Eigen::MatrixXd C,V,U,W;
     Eigen::MatrixXi BE,F;
     Eigen::VectorXi P;

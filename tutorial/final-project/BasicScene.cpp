@@ -65,15 +65,18 @@ void BasicScene::animation()
         paused = true;
     }
 
-    AnimateSnakeSkeleton();
+    
 
     if (boostAbility.didAbilityEnd())
         endBoostAbility();
     if (invisAbility.didAbilityEnd())
         endInvisAbility();
 
-    Eigen::MatrixX3f system = Eigen::Affine3f(links[links.size() / 2]->Model->GetAggregatedTransform()).rotation().transpose();
+    Eigen::MatrixX3f system = Eigen::Affine3f(links[links.size() - 1]->Model->GetAggregatedTransform()).rotation().transpose();
     snake->TranslateInSystem(system, Eigen::Vector3f(0, 0, movementSpeed));
+
+    AnimateSnakeSkeleton();
+
     CheckPointCollisions();
     if (playingLevel == 2)
     {
@@ -99,7 +102,7 @@ void BasicScene::AnimateSnakeSkeleton()
         sonQuaternion.normalize();
         auto midQ = Eigen::Quaternionf::Identity().slerp(movementSpeed * 2, sonQuaternion).normalized();
         links[i - 1]->Model->Rotate(midQ.toRotationMatrix());
-        links[i]->Model->Rotate(midQ.conjugate().toRotationMatrix());
+        links[i]->Model->Rotate(midQ.conjugate().normalized().toRotationMatrix());
     }
 
     for (size_t i = 0; i < links.size(); i++)
@@ -137,6 +140,8 @@ void BasicScene::CheckPointCollisions()
             levelScore += point->Score;
 
             point->moveToNewPosition(GenerateRandomPoint(camList[2], 5, 35), links[links.size() - 1]->Model->GetTranslation());
+
+            AddLinkToSnake();
         }
     }
 }
@@ -177,7 +182,7 @@ Eigen::Quaternionf get_rotation_quaternion(const Eigen::Quaternionf &fatherQ, co
 void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, int scancode, int action, int mods)
 {
     static bool wasd[4];
-    auto rotationAngle = 2.0f;
+    auto rotationAngle = 4.0f;
     auto system = camList[1]->GetRotation().transpose();
     // Eigen::Matrix3f system2 = Eigen::Affine3f::Identity();
     Eigen::Vector3f pos, angles;
@@ -210,6 +215,18 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
         case GLFW_KEY_D:
             wasd[3] = true;
             break;
+        case GLFW_KEY_J:
+            AddLinkToSnake();
+            break;
+        case GLFW_KEY_K:
+        {
+            for (size_t i = 0; i < linksCount; i++)
+            {
+                links[i]->Model->isHidden = !links[i]->Model->isHidden;
+            }
+            break;
+        }
+
         case GLFW_KEY_E:
             if (!paused)
             {
@@ -758,7 +775,7 @@ float WeightFunction(float distance)
     return 1 / log10f(powf(distance, 2.0f) + 1);
 }
 
-Eigen::Vector2f CalculateWeightByDistances(int joint1Index, float distance1, int joint2Index, float distance2)
+Eigen::Vector2f BasicScene::CalculateWeightByDistances(int joint1Index, float distance1, int joint2Index, float distance2)
 {
     // The distance from which to give full control to the previous joint
     // Change to zero if you want always to be manipulated by previous joint
@@ -873,32 +890,20 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     snake = cg3d::Model::Create("snake", snakeMesh, snakeSkin);
     snake->showWireframe = true;
     snake->showFaces = false;
+    // snake->isHidden = true;
 
-    snake->Translate(linkSize * linksCount / 2, Axis::Z);
-    snake->SetCenter(Eigen::Vector3f(0, 0, linkSize * linksCount / 2));
-
-    auto snakeAxis = Model::Create("snakeAxis", coordsys, axis_material);
-    axis1.push_back(snakeAxis);
-    snakeAxis->mode = 1;
-    snakeAxis->Translate(Eigen::Vector3f(0, 0, linkSize * linksCount / 2));
-    snake->AddChild(snakeAxis);
-
-    // snake->Scale(0.2f);
-    // snake->Scale(16,Axis::Z);
     root->AddChild(snake);
     C = Eigen::MatrixXd(linksCount + 1, 3);
     BE = Eigen::MatrixXi(linksCount, 2);
 
     links.push_back(std::make_shared<Collidable>(cg3d::Model::Create("link 0", cylMesh, snakeSkin)));
     links[0]->Model->showWireframe = true;
-    links[0]->Model->Translate(-linkSize * linksCount / 2.0, Axis::Z);
-    links[0]->Model->Translate(linkSize / 2.0, Axis::Z);
-    links[0]->Model->SetCenter(Eigen::Vector3f(0, 0, -linkSize / 2.0));
+    links[0]->Model->Translate(-linkSize * linksCount / 2.0f, Axis::Z);
+    links[0]->Model->Translate(linkSize / 2.0f, Axis::Z);
+    links[0]->Model->SetCenter(Eigen::Vector3f(0, 0, -linkSize / 2.0f));
     links[0]->Model->Scale(linkSize / linkMeshSize);
     snake->AddChild(links[0]->Model);
     links[0]->Model->isHidden = true;
-    // Eigen::Vector4f a = links[0]->Model->GetAggregatedTransform() * Eigen::Vector4f{0,0,0,1};
-    // C.row(0) << a[0],a[1],a[2];
     C.row(0) << 0, 0, -(linkSize) * (linksCount / 2);
     BE.row(0) << 0, 1;
 
@@ -910,36 +915,26 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
         links[i]->Model->SetCenter(Eigen::Vector3f(0, 0, -linkSize / 2.0f));
         links[i - 1]->Model->AddChild(links[i]->Model);
         links[i]->Model->Scale(linkSize / linkMeshSize);
-        // axis.push_back(Model::Create("axis of link " + std::to_string(i - 1), coordsys, axis_material));
-        // axis[i]->mode = 1;
-        // links[i - 1]->Model->AddChild(axis[i]);
-        // axis[i]->SetTout(Eigen::Affine3f::Identity());
         links[i]->Model->isHidden = true;
 
-        C.row(i) << 0, 0, (linkSize) * ((int)(i - (linksCount / 2.0f)));
+        C.row(i) << 0, 0, (linkSize) * ((i - (linksCount / 2.0f)));
         BE.row(i) << i, i + 1;
     }
 
-    C.row(linksCount) << 0, 0, (linkSize) * ((int)(linksCount / 2));
+    for (size_t i = 0; i < maxLinksCount - startLinksCount; i++)
+    {
+        spareLinks.push_back(std::make_shared<Collidable>(cg3d::Model::Create("link " + std::to_string(i), cylMesh, snakeSkin)));
+        spareLinks[i]->Model->SetCenter(Eigen::Vector3f(0, 0, -linkSize / 2.0f));
+        spareLinks[i]->Model->isHidden = true;
+    }
 
-    std::cout << "link size: " << linkSize << std::endl;
-    std::cout << "C: " << std::endl
-              << C << std::endl;
-    std::cout << "BE: " << std::endl
-              << BE << std::endl;
+    C.row(linksCount) << 0, 0, (linkSize) * ((linksCount / 2));
 
     V = scaleVertices(snakeMesh->data[0].vertices, {linkSize / linkMeshSize, linkSize / linkMeshSize, linkSize * linksCount / linkMeshSize});
-    // for (size_t i = 0; i < V.rows(); i++)
-    // {
-    //     V.row(i) << V.row(i)[0] + ,0,0;
-    // }
 
     F = snakeMesh->data[0].faces;
     U = V;
     igl::directed_edge_parents(BE, P);
-
-    std::cout << "P: " << std::endl
-              << P << std::endl;
 
     W = Eigen::MatrixXd::Zero(V.rows(), C.rows() - 1);
     for (size_t i = 0; i < V.rows(); i++)
@@ -949,68 +944,14 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
         auto weights = CalculateWeightByDistances(res[0], res[2], res[1], res[3]);
         W.row(i)[(int)res[0]] = weights[0];
         W.row(i)[(int)res[1]] = weights[1];
-        // if (res[0] < res[1])
-        // {
-        //     W.row(i)[(int)res[0]] = (double)(res[2] * 3 / (res[2] * 3 + res[3]));
-        //     W.row(i)[(int)res[1]] = (double)(res[3] / (res[2] * 3 + res[3]));
-        // }
-        // else
-        // {
-        //     W.row(i)[(int)res[0]] = (double)(res[2] / (res[2] + res[3] * 3));
-        //     W.row(i)[(int)res[1]] = (double)(res[3] * 3 / (res[2] + res[3] * 3));
-        // }
-        // W.row(i).normalize();
-        // W.row(i)[(int)res[0]] = 0.5;
-        // W.row(i)[(int)res[1]] = 0.5;
     }
-
-    // igl::directed_edge_orientations(C, BE, rest_pose);
-    // poses.resize((C.rows() - 1) * 4, RotationList(C.rows() - 1, Eigen::Quaterniond::Identity()));
-    // const Eigen::Quaterniond twist(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
-    // const Eigen::Quaterniond bend(Eigen::AngleAxisd(M_PI * 0.7, Eigen::Vector3d(0, 1, 0)));
-
-    // for (size_t i = 0; i < C.rows() - 1; i++)
-    // {
-    //     poses[i * 4 + 1][i] = rest_pose[i] * twist * rest_pose[i].conjugate();
-    //     // int indexToMoveBy = i == 0 ? 0 : i - 1;
-    //     poses[i * 4 + 3][i] = rest_pose[i] * bend * rest_pose[i].conjugate();
-    //     std::cout << "Moving index " << i << std::endl;
-    //     std::cout << "Twist Quaternion: " << poses[i * 4 + 1][i].vec().transpose() << std::endl;
-    //     std::cout << "Bend Quaternion: " << poses[i * 4 + 3][i].vec().transpose() << std::endl;
-    // }
-
-    // poses[3][2] = poses[3][jointIndex].conjugate();
-    // poses[3][2] = poses[3][1].conjugate();
-
-    // RotationList anim_pose = rest_pose;
-    // anim_pose[2] = rest_pose[2]*bend*rest_pose[2].conjugate();
-
-    // RotationList vQ;
-    // std::vector<Eigen::Vector3d> vT;
-
-    // igl::forward_kinematics(C,BE,P,anim_pose,vQ,vT);
-
-    // igl::dqs(V,W,vQ,vT,U);
-    // Eigen::MatrixXd N;
-    // igl::per_vertex_normals(U,snake->GetMesh()->data[0].faces,N);
-    // Mesh nextPose("snake",U,F,N,snake->GetMesh()->data[0].textureCoords);
-    // snake->SetMeshList({std::make_shared<Mesh>(nextPose)});
-
-    // axis.push_back(Model::Create("axis of link " + std::to_string(linksCount - 1), coordsys, axis_material));
-    // axis[linksCount]->mode = 1;
-    // links[linksCount - 1]->Model->AddChild(axis[linksCount]);
-    // axis[linksCount]->SetTout(Eigen::Affine3f::Identity());
 
     links[linksCount - 1]->Model->AddChild(camList[0]);
     links[linksCount - 1]->Model->AddChild(camList[1]);
 
-    // links[0]->Model->RotateByDegree(-90, Axis::X);
-    // axis[0]->RotateByDegree(-90, Axis::X);
-    // sceneRoot->RotateByDegree(-90, Axis::X);
-
     // Third Person
-    camList[0]->Translate(-3, Axis::Z);
-    camList[0]->Translate(-2, Axis::Y);
+    camList[0]->Translate(-5, Axis::Z);
+    camList[0]->Translate(-4, Axis::Y);
     camList[0]->RotateByDegree(158.5, Eigen::Vector3f(1, 0, 0));
 
     float firstPersonOffset = 1;
@@ -1036,6 +977,67 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     enemyModel->isHidden = true;
     sceneRoot->AddChild(enemyModel);
     enemies.push_back(std::make_shared<Enemy>(enemyModel, 0.05, 0.01, Eigen::Vector3f{5, 0, 0}));
+}
+
+void BasicScene::AddLinkToSnake()
+{
+    linksCount++;
+
+    // Initialize C and BE again
+    C = Eigen::MatrixXd(linksCount + 1, 3);
+    BE = Eigen::MatrixXi(linksCount, 2);
+
+    C.row(0) << 0, 0, -(linkSize) * (linksCount / 2.0);
+    BE.row(0) << 0, 1;
+
+    // Insert to links the last element from spareLinks
+    links.insert(links.begin(), spareLinks.back());
+    // Remove it from spare links
+    spareLinks.pop_back();
+
+    links[0]->Model->isHidden = links[1]->Model->isHidden;
+
+    // Add the link to the scene
+    snake->AddChild(links[0]->Model);
+    snake->RemoveChild(links[1]->Model);
+
+    links[0]->Model->Scale(linkSize / linkMeshSize);
+
+    links[0]->Model->AddChild(links[1]->Model);
+
+    // Move the link to the right location
+    links[0]->Model->Translate(-(linksCount)*linkSize / 2.0, Axis::Z);
+    links[1]->Model->Translate((linksCount)*linkSize / 2.0, Axis::Z);
+
+    snake->Translate({0, 0, -linkSize / 2.0f});
+    links[0]->Model->Translate({0, 0, linkSize / 2.0f});
+    for (size_t i = 1; i < linksCount; i++)
+    {
+        C.row(i) << 0, 0, (linkSize) * ((i - (linksCount / 2.0f)));
+        BE.row(i) << i, i + 1;
+    }
+
+    C.row(linksCount) << 0, 0, (linkSize) * ((linksCount / 2.0));
+
+    // Scale back V
+    V = scaleVertices(V, {linkMeshSize / linkSize, linkMeshSize / linkSize, linkMeshSize / (linkSize * (linksCount - 1))});
+    // Scale V
+    V = scaleVertices(V, {linkSize / linkMeshSize, linkSize / linkMeshSize, linkSize * linksCount / linkMeshSize});
+
+    U = V;
+    igl::directed_edge_parents(BE, P);
+
+    W = Eigen::MatrixXd::Zero(V.rows(), C.rows() - 1);
+    for (size_t i = 0; i < V.rows(); i++)
+    {
+        Eigen::Vector3f v = V.row(i).cast<float>().eval();
+        auto res = getDistanceFromColsestJoints(v, C);
+        auto weights = CalculateWeightByDistances(res[0], res[2], res[1], res[3]);
+        W.row(i)[(int)res[0]] = weights[0];
+        W.row(i)[(int)res[1]] = weights[1];
+    }
+
+    AnimateSnakeSkeleton();
 }
 
 void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, const Eigen::Matrix4f &view, const Eigen::Matrix4f &model)
@@ -1106,7 +1108,7 @@ void BasicScene::endInvisAbility()
 Eigen::Vector4f BasicScene::getDistanceFromColsestJoints(Eigen::Vector3f posV, Eigen::MatrixXd C)
 {
     std::vector<float> distances(C.rows()); // Vector to store distances from posV to each joint
-    for (int i = 0; i < C.rows() - 1; i++)
+    for (int i = 0; i < C.rows(); i++)
     {
         Eigen::Vector3f posC_float = C.row(i).cast<float>().eval();
         distances[i] = (posV - posC_float).norm(); // Euclidean distance from posV to joint i
@@ -1118,7 +1120,7 @@ Eigen::Vector4f BasicScene::getDistanceFromColsestJoints(Eigen::Vector3f posV, E
     {
         std::swap(idx_closest, idx_second_closest);
     }
-    for (int i = 2; i < C.rows() - 1; i++)
+    for (int i = 2; i < C.rows(); i++)
     {
         if (distances[i] < distances[idx_closest])
         {
@@ -1131,7 +1133,17 @@ Eigen::Vector4f BasicScene::getDistanceFromColsestJoints(Eigen::Vector3f posV, E
         }
     }
 
+    if (idx_closest == C.rows() - 1)
+    {
+        idx_closest = idx_second_closest;
+    }
+    else if (idx_second_closest == C.rows() - 1)
+    {
+        idx_second_closest = idx_closest;
+    }
+
     Eigen::Vector4f result;
     result << idx_closest, idx_second_closest, distances[idx_closest], distances[idx_second_closest];
+
     return result;
 }
