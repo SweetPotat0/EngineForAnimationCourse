@@ -65,17 +65,34 @@ void BasicScene::animation()
         paused = true;
     }
 
-    
+    static bool isTongIn = false;
+    auto currSeconds = std::chrono::steady_clock::now() - gameTime;
+    std::cout << "Elapsed milli: " << currSeconds.count() << std::endl;
+    long secondsElapsed = currSeconds.count() * powl(10, -8);
+    std::cout << "Elapsed: " << secondsElapsed << std::endl;
+
+    if (isTongIn && (secondsElapsed % 10) < 5)
+    {
+        snakeTongueModel->Translate({0, 0, 1});
+        isTongIn = false;
+    }
+    else if (isTongIn == false && (secondsElapsed % 10) >= 5)
+    {
+        snakeTongueModel->Translate({0, 0, -1});
+        isTongIn = true;
+    }
 
     if (boostAbility.didAbilityEnd())
         endBoostAbility();
     if (invisAbility.didAbilityEnd())
         endInvisAbility();
 
-    Eigen::MatrixX3f system = Eigen::Affine3f(links[links.size() - 1]->Model->GetAggregatedTransform()).rotation().transpose();
-    snake->TranslateInSystem(system, Eigen::Vector3f(0, 0, movementSpeed));
+    Eigen::Vector3f localZAxis = links[links.size() - 1]->Model->GetAggregatedTransform().block<3, 1>(0, 2);
+    snake->Translate(localZAxis.normalized() * movementSpeed);
 
     AnimateSnakeSkeleton();
+
+    CheckSelfCollisions();
 
     CheckPointCollisions();
     if (playingLevel == 2)
@@ -90,17 +107,41 @@ void BasicScene::animation()
     }
 }
 
+void BasicScene::CheckSelfCollisions()
+{
+    for (int i = 0; i < (int)links.size() - 2; i++)
+    {
+        auto collidingOBB = links[links.size() - 1]->getCollidingOBB(links[i]);
+        if (collidingOBB != NULL)
+        {
+            // Self hit
+            free(collidingOBB);
+            std::cout << "GAME OVER" << std::endl;
+            gameState = GameState::AfterLevel;
+            animate = false;
+            paused = true;
+        }
+    }
+}
+
+float clamp(float value, float minRange, float maxRange)
+{
+    return std::max(minRange, std::min(value, maxRange));
+}
+
 void BasicScene::AnimateSnakeSkeleton()
 {
     // Animate Skin
     RotationList anim_pose(links.size());
 
-    float step = 0.1f;
+    float step = clamp(movementSpeed / 2, 0, 1);
+
     for (size_t i = links.size() - 1; i > 0; i--)
     {
         auto sonQuaternion = Eigen::Quaternionf(links[i]->Model->GetTout().rotation());
         sonQuaternion.normalize();
-        auto midQ = Eigen::Quaternionf::Identity().slerp(movementSpeed * 2, sonQuaternion).normalized();
+
+        auto midQ = Eigen::Quaternionf::Identity().slerp(step, sonQuaternion).normalized();
         links[i - 1]->Model->Rotate(midQ.toRotationMatrix());
         links[i]->Model->Rotate(midQ.conjugate().normalized().toRotationMatrix());
     }
@@ -215,17 +256,6 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
         case GLFW_KEY_D:
             wasd[3] = true;
             break;
-        case GLFW_KEY_J:
-            AddLinkToSnake();
-            break;
-        case GLFW_KEY_K:
-        {
-            for (size_t i = 0; i < linksCount; i++)
-            {
-                links[i]->Model->isHidden = !links[i]->Model->isHidden;
-            }
-            break;
-        }
 
         case GLFW_KEY_E:
             if (!paused)
@@ -342,7 +372,8 @@ void BasicScene::ScrollCallback(Viewport *viewport, int x, int y, int xoffset, i
     }
     else
     {
-        camera->TranslateInSystem(system, {0, 0, -float(yoffset)});
+        Eigen::Vector3f localZAxis = camera->GetAggregatedTransform().block<3, 1>(0, 2);
+        camera->Translate(localZAxis.normalized() * -yoffset);
         cameraToutAtPress = camera->GetTout();
     }
 }
@@ -511,6 +542,24 @@ void BasicScene::startLevel(int level)
     levelScore = 0;
     animate = true;
     paused = false;
+    if (linksCount != startLinksCount)
+    {
+        snake->RemoveChild(links[0]->Model);
+        for (size_t i = 0; i < linksCount - startLinksCount; i++)
+        {
+            links[0]->Model->RemoveChild(links[1]->Model);
+            links[0]->Model->Translate(-links[0]->Model->GetTranslation());
+            spareLinks.insert(spareLinks.begin(), links[0]);
+            links.erase(links.begin());
+        }
+        links[0]->Model->Translate({0, 0, -linkSize});
+        // links[0]->Model->Translate(-links[0]->Model->GetTout().translation());
+        snake->AddChild(links[0]->Model);
+
+        int oldLinksCount = linksCount;
+        linksCount = startLinksCount;
+        RecalculateSnakeMesh(oldLinksCount);
+    }
     gameState = GameState::MidLevel;
     std::cout << "should start level " << level << std::endl;
     switch (level)
@@ -531,7 +580,8 @@ void BasicScene::startLevel(int level)
         for (size_t i = 0; i < points.size(); i++) // reset points
             points[i]->Model->isHidden = false;
 
-        links[0]->Model->Translate(-links[0]->Model->GetTranslation()); // reset snake
+        snake->Translate(-snake->GetTranslation()); // reset snake
+        // links[0]->Model->Translate(-links[0]->Model->GetTranslation()); // reset snake
         for (size_t i = 0; i < links.size(); i++)
             links[i]->Model->Rotate(links[i]->Model->GetRotation().matrix().inverse());
 
@@ -840,19 +890,26 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     snakeSkinTransparent = std::make_shared<Material>("snakeSkinTransparent", program2);
     auto swordTex{std::make_shared<Material>("sword", program)};
 
+    auto snake_tongue_material = std::make_shared<Material>("snake_tongue_material", program);
+    snake_tongue_material->AddTexture(0, "textures/tong2.jpg", 2);
+
     auto axis_material = std::make_shared<Material>("axis-material", program1);
     material->AddTexture(0, "textures/box0.bmp", 2);
-    snakeSkin->AddTexture(0, "textures/snake1.png", 2);
-    snakeSkinTransparent->AddTexture(0, "textures/snake1.png", 2);
+    snakeSkin->AddTexture(0, "textures/DragonScales_diffuseOriginal.jpg", 2);
+    snakeSkinTransparent->AddTexture(0, "textures/DragonScales_diffuseOriginal.jpg", 2);
     paintedEgg->AddTexture(0, "textures/paintedEgg.jpg", 2);
     swordTex->AddTexture(0, "textures/Sword_texture.png", 2);
 
     auto EnemyMesh{IglLoader::MeshLoader2("enemy", "data/Sword.obj")};
     auto PointMesh{IglLoader::MeshLoader2("eggPoint", "data/egg.obj")};
     auto cylMesh{IglLoader::MeshLoader2("cyl_igl", "data/zcylinder.obj")};
+    auto snakeTongueMesh{IglLoader::MeshLoader2("cyl_igl", "data/BambaSnakeTongue.obj")};
     auto sphereMesh{IglLoader::MeshFromFiles("sphere_igl", "data/sphere.obj")};
 
     auto coordsys = Mesh::Axis();
+
+    snakeTongueModel = cg3d::Model::Create("snakeTongue", snakeTongueMesh, snake_tongue_material);
+    // snakeTongueModel->isHidden = true;
 
     sceneRoot = cg3d::Model::Create("sroot", sphereMesh, material);
     sceneRoot->isHidden = true;
@@ -886,10 +943,10 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
 
     sceneRoot->AddChild(root);
 
-    auto snakeMesh{IglLoader::MeshLoader2("snake", "data/snake1.obj")};
+    auto snakeMesh{IglLoader::MeshLoader2("snake", "data/BambaSnake1.obj")};
     snake = cg3d::Model::Create("snake", snakeMesh, snakeSkin);
     snake->showWireframe = true;
-    snake->showFaces = false;
+    // snake->showFaces = false;
     // snake->isHidden = true;
 
     root->AddChild(snake);
@@ -920,6 +977,12 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
         C.row(i) << 0, 0, (linkSize) * ((i - (linksCount / 2.0f)));
         BE.row(i) << i, i + 1;
     }
+
+    links[links.size() - 1]->Model->AddChild(snakeTongueModel);
+    snakeTongueModel->Translate({0, 0, 1});
+    snakeTongueModel->RotateByDegree(180, Axis::Z);
+    snakeTongueModel->showWireframe = true;
+    snakeTongueModel->Scale({20, 20, 20});
 
     for (size_t i = 0; i < maxLinksCount - startLinksCount; i++)
     {
@@ -983,13 +1046,6 @@ void BasicScene::AddLinkToSnake()
 {
     linksCount++;
 
-    // Initialize C and BE again
-    C = Eigen::MatrixXd(linksCount + 1, 3);
-    BE = Eigen::MatrixXi(linksCount, 2);
-
-    C.row(0) << 0, 0, -(linkSize) * (linksCount / 2.0);
-    BE.row(0) << 0, 1;
-
     // Insert to links the last element from spareLinks
     links.insert(links.begin(), spareLinks.back());
     // Remove it from spare links
@@ -1011,6 +1067,19 @@ void BasicScene::AddLinkToSnake()
 
     snake->Translate({0, 0, -linkSize / 2.0f});
     links[0]->Model->Translate({0, 0, linkSize / 2.0f});
+
+    RecalculateSnakeMesh(linksCount - 1);
+}
+
+void BasicScene::RecalculateSnakeMesh(int oldLinksCount)
+{
+    // Initialize C and BE again
+    C = Eigen::MatrixXd(linksCount + 1, 3);
+    BE = Eigen::MatrixXi(linksCount, 2);
+
+    C.row(0) << 0, 0, -(linkSize) * (linksCount / 2.0);
+    BE.row(0) << 0, 1;
+
     for (size_t i = 1; i < linksCount; i++)
     {
         C.row(i) << 0, 0, (linkSize) * ((i - (linksCount / 2.0f)));
@@ -1020,7 +1089,7 @@ void BasicScene::AddLinkToSnake()
     C.row(linksCount) << 0, 0, (linkSize) * ((linksCount / 2.0));
 
     // Scale back V
-    V = scaleVertices(V, {linkMeshSize / linkSize, linkMeshSize / linkSize, linkMeshSize / (linkSize * (linksCount - 1))});
+    V = scaleVertices(V, {linkMeshSize / linkSize, linkMeshSize / linkSize, linkMeshSize / (linkSize * oldLinksCount)});
     // Scale V
     V = scaleVertices(V, {linkSize / linkMeshSize, linkSize / linkMeshSize, linkSize * linksCount / linkMeshSize});
 

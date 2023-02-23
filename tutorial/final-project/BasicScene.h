@@ -51,6 +51,8 @@ public:
 
 private:
     RotationList rest_pose;
+    void CheckSelfCollisions();
+    void RecalculateSnakeMesh(int oldLinksCount);
     void AddLinkToSnake();
     void AnimateSnakeSkeleton();
     void CheckPointCollisions();
@@ -70,6 +72,7 @@ private:
     void startLevel(int level);
     void changeNextLevel();
     void BuildImGui() override;
+    std::shared_ptr<cg3d::Model> snakeTongueModel;
     std::vector<std::shared_ptr<cg3d::Camera>> camList;
     std::vector<std::shared_ptr<cg3d::Model>> axis, axis1;
     std::vector<std::shared_ptr<Collidable>> links, spareLinks;
@@ -84,7 +87,7 @@ private:
     float delta = 0.05f;
     int playingLevel = 0;
     int levelScore = 0;
-    float movementSpeed = 0.04f;
+    float movementSpeed = 0.08f;
     std::chrono::steady_clock::time_point gameTime;
     std::chrono::seconds gameDuration = std::chrono::seconds(1000);
     Ability boostAbility = Ability(15, 5);
