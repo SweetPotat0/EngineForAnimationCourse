@@ -28,6 +28,7 @@ public:
         Level3,
         MidLevel,
         AfterLevel,
+        WinLevel,
         Pause
     };
 
@@ -81,6 +82,7 @@ private:
     std::vector<std::shared_ptr<SnakePoint>> points;
     std::vector<std::shared_ptr<Enemy>> enemies;
     std::shared_ptr<cg3d::Material> snakeSkin, snakeSkinTransparent;
+    float eggAlpha = 1.0f;
     bool paused = true;
     int picked_index = 0;
     int counter = 0;
@@ -95,7 +97,7 @@ private:
 
     int startLinksCount = 4;
     int linksCount = startLinksCount;
-    int maxLinksCount = 16;
+    int maxLinksCount = 6;
 
     //Link mesh and model scaling
     float linkMeshSize = 1.6f;

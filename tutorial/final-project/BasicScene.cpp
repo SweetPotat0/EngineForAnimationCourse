@@ -66,10 +66,10 @@ void BasicScene::animation()
     }
 
     static bool isTongIn = false;
-    auto currSeconds = std::chrono::steady_clock::now() - gameTime;
-    std::cout << "Elapsed milli: " << currSeconds.count() << std::endl;
-    long secondsElapsed = currSeconds.count() * powl(10, -8);
-    std::cout << "Elapsed: " << secondsElapsed << std::endl;
+    auto nanoEllapsed = std::chrono::steady_clock::now() - gameTime;
+    int milliEllapsed = nanoEllapsed.count() * powl(10, -6);
+    std::cout << "Elapsed milli: " << milliEllapsed << std::endl;
+    long secondsElapsed = nanoEllapsed.count() * powl(10, -8);
 
     if (isTongIn && (secondsElapsed % 10) < 5)
     {
@@ -81,6 +81,9 @@ void BasicScene::animation()
         snakeTongueModel->Translate({0, 0, -1});
         isTongIn = true;
     }
+
+    // Fix seconds
+    secondsElapsed = secondsElapsed / 10.0f;
 
     if (boostAbility.didAbilityEnd())
         endBoostAbility();
@@ -97,6 +100,7 @@ void BasicScene::animation()
     CheckPointCollisions();
     if (playingLevel == 2)
     {
+        // Check enemy collisions:
         for (size_t i = 0; i < enemies.size(); i++)
         {
             if (enemies[i]->ifReachedDest())
@@ -104,6 +108,16 @@ void BasicScene::animation()
             enemies[i]->moveTowardsDest();
         }
         CheckEnemyCollisions();
+    }
+    if (playingLevel == 3)
+    {
+        int timeToVanish = pow(10, 4);
+        eggAlpha = (float)(timeToVanish - (milliEllapsed % timeToVanish))/ timeToVanish;
+        if (eggAlpha <= 0)
+        {
+            points[0]->moveToNewPosition(GenerateRandomPoint(camList[2], 5, 35), links[links.size() - 1]->Model->GetTranslation());
+            eggAlpha = 1.0f;
+        }
     }
 }
 
@@ -180,9 +194,19 @@ void BasicScene::CheckPointCollisions()
             std::cout << "You hit! Earned " << point->Score << " points!" << std::endl;
             levelScore += point->Score;
 
-            point->moveToNewPosition(GenerateRandomPoint(camList[2], 5, 35), links[links.size() - 1]->Model->GetTranslation());
-
-            AddLinkToSnake();
+            if (links.size() == maxLinksCount - 1)
+            {
+                std::cout << "You win the level" << std::endl;
+                gameState = GameState::WinLevel;
+                animate = false;
+                paused = true;
+            }
+            else
+            {
+                point->moveToNewPosition(GenerateRandomPoint(camList[2], 5, 35), links[links.size() - 1]->Model->GetTranslation());
+                AddLinkToSnake();
+                eggAlpha = 1.0f;
+            }
         }
     }
 }
@@ -256,6 +280,17 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
         case GLFW_KEY_D:
             wasd[3] = true;
             break;
+        case GLFW_KEY_J:
+            AddLinkToSnake();
+            break;
+        case GLFW_KEY_K:
+        {
+            for (size_t i = 0; i < linksCount; i++)
+            {
+                links[i]->Model->isHidden = !links[i]->Model->isHidden;
+            }
+            break;
+        }
 
         case GLFW_KEY_E:
             if (!paused)
@@ -552,7 +587,7 @@ void BasicScene::startLevel(int level)
             spareLinks.insert(spareLinks.begin(), links[0]);
             links.erase(links.begin());
         }
-        links[0]->Model->Translate({0, 0, -linkSize});
+        links[0]->Model->Translate({0, 0, -((startLinksCount / 2.0f) + 0.5f) * linkSize});
         // links[0]->Model->Translate(-links[0]->Model->GetTout().translation());
         snake->AddChild(links[0]->Model);
 
@@ -731,6 +766,37 @@ void BasicScene::BuildImGui()
         ImGui::Text("AXES: X-RED Y-GREEN Z-BLUE");
         break;
     }
+    case GameState::WinLevel:
+    {
+        float window_width = 300;
+        float window_height = 300;
+        ImGui::SetWindowPos(ImVec2((DISPLAY_WIDTH - window_width) / 2, (DISPLAY_HEIGHT - window_height) / 2), ImGuiCond_Always);
+        ImGui::SetWindowSize(ImVec2(window_width, window_height));
+
+        TextCentered("You Win!", 30);
+        std::string scoreStr = "Score: ";
+        scoreStr = scoreStr + std::to_string(levelScore);
+        TextCentered(scoreStr.c_str(), 30);
+
+        cursorCentered("Restart Level", 30);
+        if (ImGui::Button("Restart Level"))
+        {
+            gameState = GameState::MidLevel;
+            animate = true;
+            startLevel(playingLevel);
+        }
+        cursorCentered("Next Level", 20);
+        if (ImGui::Button("Next Level"))
+        {
+            changeNextLevel();
+        }
+        cursorCentered("Quit Game", 20);
+        if (ImGui::Button("Quit Game"))
+        {
+            exit(0);
+        }
+        break;
+    }
     case GameState::AfterLevel:
     {
         float window_width = 300;
@@ -874,7 +940,7 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     DISPLAY_HEIGHT = height;
     DISPLAY_WIDTH = width;
     auto daylight{std::make_shared<Material>("daylight", "shaders/cubemapShader")};
-    daylight->AddTexture(0, "textures/cubemaps/Daylight Box_", 3);
+    daylight->AddTexture(0, "textures/cubemaps/Nature Box/Nature Box_", 3);
     auto background{Model::Create("background", Mesh::Cube(), daylight)};
     AddChild(background);
     background->Scale(120, Axis::XYZ);
@@ -884,8 +950,9 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     auto program = std::make_shared<Program>("shaders/basicShader");
     auto program1 = std::make_shared<Program>("shaders/axisShader");
     auto program2 = std::make_shared<Program>("shaders/basicShader1");
+    auto eggShader = std::make_shared<Program>("shaders/eggShader");
     auto material = std::make_shared<Material>("material", program);
-    auto paintedEgg{std::make_shared<Material>("paintedEgg", program)};
+    auto paintedEgg{std::make_shared<Material>("paintedEgg", eggShader)};
     snakeSkin = std::make_shared<Material>("snakeSkin", program);
     snakeSkinTransparent = std::make_shared<Material>("snakeSkinTransparent", program2);
     auto swordTex{std::make_shared<Material>("sword", program)};
@@ -1114,10 +1181,16 @@ void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, con
 
     Scene::Update(program, proj, view, model);
     static int frameCount = 0;
+    frameCount++;
     if (strcmp(program.name.c_str(), "axis-material") == 0)
     {
         Eigen::Vector3f position = Eigen::Affine3f(model).translation();
         program.SetUniform3f("root", position.x(), position.y(), position.z());
+    }
+    else if (program.name == "eggShader")
+    {
+        std::cout << "alpha: " << eggAlpha << std::endl;
+        program.SetUniform1f("alpha", eggAlpha);
     }
     // else if (strcmp(program.name.c_str(), "paintedEgg") == 0){
     //     program.SetUniform2f("alpha", 1,1);
