@@ -1,5 +1,8 @@
 Submitters: Guy Madmon, Ido Shimshi 
 
+Git link: https://github.com/SweetPotat0/EngineForAnimationCourse/tree/final-project
+Git Branch: final-project
+
 Essential Game Features:
 
  - Snake with maximum 16 links (can change it, its a constant in BasicScene.h)
