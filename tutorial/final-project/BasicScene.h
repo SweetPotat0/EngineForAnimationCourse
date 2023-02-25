@@ -98,7 +98,7 @@ private:
 
     int startLinksCount = 4;
     int linksCount = startLinksCount;
-    int maxLinksCount = 5;
+    int maxLinksCount = 16;
 
     //Link mesh and model scaling
     float linkMeshSize = 1.6f;
