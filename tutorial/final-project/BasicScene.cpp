@@ -55,23 +55,27 @@ Eigen::Matrix3f QuaternionToRotationMatrix(const Eigen::Quaterniond &q)
     return rotation_matrix;
 }
 
+void BasicScene::LoseGame()
+{
+    PlaySound("data/LoseLevel.wav", NULL, SND_FILENAME | SND_ASYNC);
+    gameState = GameState::AfterLevel;
+    animate = false;
+    paused = true;
+}
+
 void BasicScene::animation()
 {
     if (playingLevel == 1 && std::chrono::steady_clock::now() - gameTime > gameDuration)
     {
-        std::cout << "GAME OVER" << std::endl;
-        gameState = GameState::AfterLevel;
-        animate = false;
-        paused = true;
+        LoseGame();
     }
 
     static bool isTongIn = false;
     auto nanoEllapsed = std::chrono::steady_clock::now() - gameTime;
     int milliEllapsed = nanoEllapsed.count() * powl(10, -6);
-    std::cout << "Elapsed milli: " << milliEllapsed << std::endl;
     long secondsElapsed = nanoEllapsed.count() * powl(10, -8);
 
-    if (isTongIn && (secondsElapsed % 10) < 5)
+    if (camera != camList[1] && isTongIn && (secondsElapsed % 10) < 5)
     {
         snakeTongueModel->Translate({0, 0, 1});
         isTongIn = false;
@@ -112,7 +116,6 @@ void BasicScene::animation()
     if (playingLevel == 3)
     {
         float aboutToAlpha = (float)(timeToVanish - (milliEllapsed % timeToVanish)) / timeToVanish;
-        std::cout << "M: " << milliEllapsed << ", TIME TO VANISH: " << timeToVanish << ", alpha: " << eggAlpha << std::endl;
         if (eggAlpha <= aboutToAlpha)
         {
             points[0]->moveToNewPosition(GenerateRandomPoint(camList[2], 5, 35), links[links.size() - 1]->Model->GetTranslation());
@@ -131,10 +134,7 @@ void BasicScene::CheckSelfCollisions()
         {
             // Self hit
             free(collidingOBB);
-            std::cout << "GAME OVER" << std::endl;
-            gameState = GameState::AfterLevel;
-            animate = false;
-            paused = true;
+            LoseGame();
         }
     }
 }
@@ -194,18 +194,16 @@ void BasicScene::CheckPointCollisions()
             free(collidingOBB);
             if (playingLevel == 3)
             {
-                std::cout << "You hit! Earned " << point->Score << " points!" << std::endl;
                 levelScore += (int)((float)eggAlpha * point->Score);
             }
             else
             {
-                std::cout << "You hit! Earned " << point->Score << " points!" << std::endl;
                 levelScore += point->Score;
             }
 
             if (links.size() == maxLinksCount - 1)
             {
-                std::cout << "You win the level" << std::endl;
+                PlaySound("data/WinLevel.wav", NULL, SND_FILENAME | SND_ASYNC);
                 gameState = GameState::WinLevel;
                 animate = false;
                 paused = true;
@@ -232,10 +230,7 @@ void BasicScene::CheckEnemyCollisions()
                 // Hit
                 PlaySound("data/SwordSound.wav", NULL, SND_FILENAME | SND_ASYNC);
                 free(collidingOBB);
-                std::cout << "GAME OVER" << std::endl;
-                gameState = GameState::AfterLevel;
-                animate = false;
-                paused = true;
+                LoseGame();
             }
         }
     }
@@ -258,7 +253,6 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
     static bool wasd[4];
     auto rotationAngle = 4.0f;
     auto system = camList[1]->GetRotation().transpose();
-    // Eigen::Matrix3f system2 = Eigen::Affine3f::Identity();
     Eigen::Vector3f pos, angles;
     Eigen::Vector3f a, b;
 
@@ -289,17 +283,6 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
         case GLFW_KEY_D:
             wasd[3] = true;
             break;
-        case GLFW_KEY_J:
-            AddLinkToSnake();
-            break;
-        case GLFW_KEY_K:
-        {
-            for (size_t i = 0; i < linksCount; i++)
-            {
-                links[i]->Model->isHidden = !links[i]->Model->isHidden;
-            }
-            break;
-        }
 
         case GLFW_KEY_E:
             if (!paused)
@@ -319,7 +302,6 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
                     useInvisAbility();
                     invisAbility.abilityUsed();
                 }
-                // pointModel->material = snakeSkinTransparent;
             }
             break;
 
@@ -335,19 +317,6 @@ void BasicScene::KeyCallback(cg3d::Viewport *viewport, int x, int y, int key, in
             if (!paused)
                 SetCamera(2);
             break;
-            // case GLFW_KEY_UP:
-            // enemy->Translate({0,0,0.5});
-            // enemyModel->RotateByDegree(10.0f,Axis::Z);
-            // break;
-            // case GLFW_KEY_DOWN:
-            // enemy->Translate({0,0,-0.5});
-            // break;
-            // case GLFW_KEY_LEFT:
-            // enemy->Translate({-0.5,0,0});
-            // break;
-            // case GLFW_KEY_RIGHT:
-            // enemy->Translate({0.5,0,0});
-            // break;
         }
     }
     else if (action == GLFW_RELEASE)
@@ -427,7 +396,6 @@ void BasicScene::CursorPosCallback(Viewport *viewport, int x, int y, bool draggi
     if (ImGui::GetIO().WantCaptureMouse)
         return;
     std::shared_ptr<cg3d::Model> actuallyPicked = pickedModel;
-    // std::cout << "before dragging" << std::endl;
     if (dragging)
     {
         auto system = camera->GetRotation().transpose();
@@ -494,7 +462,6 @@ void BasicScene::MouseCallback(Viewport *viewport, int x, int y, int button, int
         auto modelAndDepth = visitor.PickAtPos(x, renderer->GetWindowHeight() - y);
         renderer->RenderViewportAtPos(x, y); // draw again to avoid flickering
         pickedModel = modelAndDepth.first ? std::dynamic_pointer_cast<Model>(modelAndDepth.first->shared_from_this()) : nullptr;
-        // pickedModel = pickedModel->modelOnPick != nullptr ? pickedModel->modelOnPick : pickedModel;
         pickedModelDepth = modelAndDepth.second;
         camera->GetRotation().transpose();
         xAtPress = x;
@@ -597,7 +564,6 @@ void BasicScene::startLevel(int level)
             links.erase(links.begin());
         }
         links[0]->Model->Translate({0, 0, -((startLinksCount / 2.0f) + 0.5f) * linkSize});
-        // links[0]->Model->Translate(-links[0]->Model->GetTout().translation());
         snake->AddChild(links[0]->Model);
 
         int oldLinksCount = linksCount;
@@ -605,14 +571,12 @@ void BasicScene::startLevel(int level)
         RecalculateSnakeMesh(oldLinksCount);
     }
     gameState = GameState::MidLevel;
-    std::cout << "should start level " << level << std::endl;
     switch (level)
     {
     case 1:
         for (size_t i = 0; i < points.size(); i++)
         { // reset points
             points[i]->Model->isHidden = false;
-            // points[i]->Model->SetTout(Eigen::Affine3f::Identity());
             points[i]->moveToNewPosition(GenerateRandomPoint(camList[2], 5, 35), links[links.size() - 1]->Model->GetTranslation());
         }
         snake->Translate(-snake->GetTranslation()); // reset snake
@@ -625,7 +589,6 @@ void BasicScene::startLevel(int level)
             points[i]->Model->isHidden = false;
 
         snake->Translate(-snake->GetTranslation()); // reset snake
-        // links[0]->Model->Translate(-links[0]->Model->GetTranslation()); // reset snake
         for (size_t i = 0; i < links.size(); i++)
             links[i]->Model->Rotate(links[i]->Model->GetRotation().matrix().inverse());
 
@@ -647,7 +610,6 @@ void BasicScene::startLevel(int level)
         }
 
         snake->Translate(-snake->GetTranslation()); // reset snake
-        // links[0]->Model->Translate(-links[0]->Model->GetTranslation()); // reset snake
         for (size_t i = 0; i < links.size(); i++)
             links[i]->Model->Rotate(links[i]->Model->GetRotation().matrix().inverse());
 
@@ -684,8 +646,6 @@ void BasicScene::BuildImGui()
         if (ImGui::Button("Start Game"))
         {
             gameState = GameState::Level1;
-
-            // PlaySound("C:\\Users\\ido\\Downloads\\Run-Amok.wav", NULL, SND_FILENAME | SND_ASYNC | SND_LOOP);
         }
         cursorCentered("Quit Game", 25);
         if (ImGui::Button("Quit Game"))
@@ -771,7 +731,7 @@ void BasicScene::BuildImGui()
             timerStr = timerStr + std::to_string(secondsToVanish);
             TextCentered(timerStr.c_str(), 0);
         }
-        else if(playingLevel == 1)
+        else if (playingLevel == 1)
         {
             std::string timerStr = "Timer: ";
             auto remaining_time = gameDuration - (std::chrono::steady_clock::now() - gameTime);
@@ -927,7 +887,6 @@ void BasicScene::BuildImGui()
 
 float WeightFunction(float distance)
 {
-    // return 1 / powf(distance, 15.0f);
     return 1 / log10f(powf(distance, 2.0f) + 1);
 }
 
@@ -988,7 +947,6 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     background->SetStatic();
 
     auto program = std::make_shared<Program>("shaders/basicShader");
-    auto program1 = std::make_shared<Program>("shaders/axisShader");
     auto program2 = std::make_shared<Program>("shaders/basicShader1");
     auto eggShader = std::make_shared<Program>("shaders/eggShader");
     auto material = std::make_shared<Material>("material", program);
@@ -1000,7 +958,6 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     auto snake_tongue_material = std::make_shared<Material>("snake_tongue_material", program);
     snake_tongue_material->AddTexture(0, "textures/tong2.jpg", 2);
 
-    auto axis_material = std::make_shared<Material>("axis-material", program1);
     material->AddTexture(0, "textures/box0.bmp", 2);
     snakeSkin->AddTexture(0, "textures/DragonScales_diffuseOriginal.jpg", 2);
     snakeSkinTransparent->AddTexture(0, "textures/DragonScales_diffuseOriginal.jpg", 2);
@@ -1016,12 +973,10 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     auto coordsys = Mesh::Axis();
 
     snakeTongueModel = cg3d::Model::Create("snakeTongue", snakeTongueMesh, snake_tongue_material);
-    // snakeTongueModel->isHidden = true;
 
     sceneRoot = cg3d::Model::Create("sroot", sphereMesh, material);
     sceneRoot->isHidden = true;
     AddChild(sceneRoot);
-    // sceneRoot->AddChild(Model::Create("sceneRoot axis", coordsys, axis_material)); //Scene root has bugs for some reasons
 
     root = cg3d::Model::Create("root", sphereMesh, material);
     root->isHidden = true;
@@ -1032,29 +987,11 @@ void BasicScene::Init(float fov, int width, int height, float near1, float far1)
     camList.push_back(Camera::Create("Static Top Camera", fov, float(width) / float(height), near1, far1));
     camera = camList[0];
 
-    // Third Person axis
-    // axis1.push_back(Model::Create("cam index 0 axis", coordsys, axis_material));
-    // axis1[0]->mode = 1;
-    // camList[0]->AddChild(axis1[0]);
-
-    // First Person Axis
-    // axis1.push_back(Model::Create("cam index 1 axis", coordsys, axis_material));
-    // axis1[1]->mode = 1;
-    // camList[1]->AddChild(axis1[1]);
-
-    axis.push_back(Model::Create("root axis", coordsys, axis_material));
-    axis[0]->mode = 1;
-    root->AddChild(axis[0]);
-    axis[0]->SetTout(Eigen::Affine3f::Identity());
-    axis[0]->modelOnPick = root;
-
     sceneRoot->AddChild(root);
 
     auto snakeMesh{IglLoader::MeshLoader2("snake", "data/BambaSnake1.obj")};
     snake = cg3d::Model::Create("snake", snakeMesh, snakeSkin);
     snake->showWireframe = true;
-    // snake->showFaces = false;
-    // snake->isHidden = true;
 
     root->AddChild(snake);
     C = Eigen::MatrixXd(linksCount + 1, 3);
@@ -1218,23 +1155,13 @@ void BasicScene::RecalculateSnakeMesh(int oldLinksCount)
 
 void BasicScene::Update(const Program &program, const Eigen::Matrix4f &proj, const Eigen::Matrix4f &view, const Eigen::Matrix4f &model)
 {
-
     Scene::Update(program, proj, view, model);
     static int frameCount = 0;
     frameCount++;
-    if (strcmp(program.name.c_str(), "axis-material") == 0)
+    if (program.name == "eggShader")
     {
-        Eigen::Vector3f position = Eigen::Affine3f(model).translation();
-        program.SetUniform3f("root", position.x(), position.y(), position.z());
-    }
-    else if (program.name == "eggShader")
-    {
-        std::cout << "alpha: " << eggAlpha << std::endl;
         program.SetUniform1f("alpha", eggAlpha);
     }
-    // else if (strcmp(program.name.c_str(), "paintedEgg") == 0){
-    //     program.SetUniform2f("alpha", 1,1);
-    // }
 }
 
 // Generate a random point within the camera's field of view

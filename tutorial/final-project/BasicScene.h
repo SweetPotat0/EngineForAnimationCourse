@@ -52,6 +52,7 @@ public:
 
 private:
     RotationList rest_pose;
+    void LoseGame();
     void CheckSelfCollisions();
     void RecalculateSnakeMesh(int oldLinksCount);
     void AddLinkToSnake();
@@ -75,7 +76,6 @@ private:
     void BuildImGui() override;
     std::shared_ptr<cg3d::Model> snakeTongueModel;
     std::vector<std::shared_ptr<cg3d::Camera>> camList;
-    std::vector<std::shared_ptr<cg3d::Model>> axis, axis1;
     std::vector<std::shared_ptr<Collidable>> links, spareLinks;
     std::shared_ptr<cg3d::Model> pointModel,enemyModel, root, sceneRoot, snake;
     igl::AABB<Eigen::MatrixXd,3> treeSnakeHead;
@@ -98,7 +98,7 @@ private:
 
     int startLinksCount = 4;
     int linksCount = startLinksCount;
-    int maxLinksCount = 16;
+    int maxLinksCount = 5;
 
     //Link mesh and model scaling
     float linkMeshSize = 1.6f;
