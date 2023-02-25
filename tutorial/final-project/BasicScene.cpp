@@ -57,7 +57,7 @@ Eigen::Matrix3f QuaternionToRotationMatrix(const Eigen::Quaterniond &q)
 
 void BasicScene::animation()
 {
-    if (std::chrono::steady_clock::now() - gameTime > gameDuration)
+    if (playingLevel == 1 && std::chrono::steady_clock::now() - gameTime > gameDuration)
     {
         std::cout << "GAME OVER" << std::endl;
         gameState = GameState::AfterLevel;
@@ -111,13 +111,14 @@ void BasicScene::animation()
     }
     if (playingLevel == 3)
     {
-        int timeToVanish = pow(10, 4);
-        eggAlpha = (float)(timeToVanish - (milliEllapsed % timeToVanish))/ timeToVanish;
-        if (eggAlpha <= 0)
+        float aboutToAlpha = (float)(timeToVanish - (milliEllapsed % timeToVanish)) / timeToVanish;
+        std::cout << "M: " << milliEllapsed << ", TIME TO VANISH: " << timeToVanish << ", alpha: " << eggAlpha << std::endl;
+        if (eggAlpha <= aboutToAlpha)
         {
             points[0]->moveToNewPosition(GenerateRandomPoint(camList[2], 5, 35), links[links.size() - 1]->Model->GetTranslation());
             eggAlpha = 1.0f;
         }
+        eggAlpha = aboutToAlpha;
     }
 }
 
@@ -191,8 +192,16 @@ void BasicScene::CheckPointCollisions()
             PlaySound("data/PointSound.wav", NULL, SND_FILENAME | SND_ASYNC);
 
             free(collidingOBB);
-            std::cout << "You hit! Earned " << point->Score << " points!" << std::endl;
-            levelScore += point->Score;
+            if (playingLevel == 3)
+            {
+                std::cout << "You hit! Earned " << point->Score << " points!" << std::endl;
+                levelScore += (int)((float)eggAlpha * point->Score);
+            }
+            else
+            {
+                std::cout << "You hit! Earned " << point->Score << " points!" << std::endl;
+                levelScore += point->Score;
+            }
 
             if (links.size() == maxLinksCount - 1)
             {
@@ -628,7 +637,27 @@ void BasicScene::startLevel(int level)
         }
         gameTime = std::chrono::steady_clock::now();
         break;
+    case 3:
+    {
+        for (size_t i = 0; i < points.size(); i++)
+        {
+            // reset points
+            points[i]->Model->isHidden = false;
+            points[i]->moveToNewPosition(GenerateRandomPoint(camList[2], 5, 35), links[links.size() - 1]->Model->GetTranslation());
+        }
 
+        snake->Translate(-snake->GetTranslation()); // reset snake
+        // links[0]->Model->Translate(-links[0]->Model->GetTranslation()); // reset snake
+        for (size_t i = 0; i < links.size(); i++)
+            links[i]->Model->Rotate(links[i]->Model->GetRotation().matrix().inverse());
+
+        for (size_t i = 0; i < enemies.size(); i++)
+        { // reset enemies
+            enemies[i]->Model->isHidden = true;
+        }
+        gameTime = std::chrono::steady_clock::now();
+        break;
+    }
     default:
         break;
     }
@@ -668,7 +697,7 @@ void BasicScene::BuildImGui()
     case GameState::Level1:
     {
         float window_width = 400;
-        float window_height = 340;
+        float window_height = 380;
         ImGui::SetWindowPos(ImVec2((DISPLAY_WIDTH - window_width) / 2, (DISPLAY_HEIGHT - window_height) / 2), ImGuiCond_Always);
         ImGui::SetWindowSize(ImVec2(window_width, window_height));
 
@@ -680,8 +709,9 @@ void BasicScene::BuildImGui()
         TextCentered("D - Right     ESC - Pause game       ", 10);
         TextCentered("Q - Ghost     E - Boost              ", 10);
 
-        TextCentered("Eat the Egg!", 30);
-        TextCentered("The faster you get to it, the more points you get", 10);
+        TextCentered("Eat " + std::to_string(maxLinksCount - startLinksCount) + " eggs in time!", 30);
+        TextCentered("You got " + std::to_string(gameDuration.count()) + " seconds to eat them!", 10);
+        TextCentered("The snake grows each egg you eat", 10);
 
         cursorCentered("Start Level", 10);
         if (ImGui::Button("Start Level"))
@@ -697,8 +727,8 @@ void BasicScene::BuildImGui()
 
         TextCentered("Level 2", 30);
 
-        TextCentered("Eat the Egg!", 30);
-        TextCentered("The faster you catch it, the more points you get", 10);
+        TextCentered("Eat " + std::to_string(maxLinksCount - startLinksCount) + " eggs!", 30);
+        TextCentered("The snake grows each egg you eat", 10);
         TextCentered("Dodge the moving Sword", 10);
 
         cursorCentered("Start Level", 20);
@@ -715,9 +745,9 @@ void BasicScene::BuildImGui()
 
         TextCentered("Level 3", 30);
 
-        TextCentered("Eat the Bunny!", 30);
+        TextCentered("Eat " + std::to_string(maxLinksCount - startLinksCount) + " eggs!", 30);
         TextCentered("The faster you catch it, the more points you get", 10);
-        TextCentered("Dodge the moving Lions", 10);
+        TextCentered("Hurry! Eggs vanish if not caught in time", 10);
         TextCentered("Snake grows the more you eat", 10);
 
         cursorCentered("Start Level", 15);
@@ -734,11 +764,21 @@ void BasicScene::BuildImGui()
         scoreStr = scoreStr + std::to_string(levelScore);
         TextCentered(scoreStr.c_str(), 0);
 
-        std::string timerStr = "Timer: ";
-        auto remaining_time = gameDuration - (std::chrono::steady_clock::now() - gameTime);
-        auto a = std::chrono::duration_cast<std::chrono::seconds>(remaining_time).count();
-        timerStr = timerStr + std::to_string(a);
-        TextCentered(timerStr.c_str(), 0);
+        if (playingLevel == 3)
+        {
+            std::string timerStr = "Egg Vanish In: ";
+            int secondsToVanish = (int)((float)pow(10, -3) * eggAlpha * timeToVanish);
+            timerStr = timerStr + std::to_string(secondsToVanish);
+            TextCentered(timerStr.c_str(), 0);
+        }
+        else if(playingLevel == 1)
+        {
+            std::string timerStr = "Timer: ";
+            auto remaining_time = gameDuration - (std::chrono::steady_clock::now() - gameTime);
+            auto a = std::chrono::duration_cast<std::chrono::seconds>(remaining_time).count();
+            timerStr = timerStr + std::to_string(a);
+            TextCentered(timerStr.c_str(), 0);
+        }
 
         unsigned int color;
         if (boostAbility.inUse)

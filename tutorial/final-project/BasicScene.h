@@ -82,6 +82,7 @@ private:
     std::vector<std::shared_ptr<SnakePoint>> points;
     std::vector<std::shared_ptr<Enemy>> enemies;
     std::shared_ptr<cg3d::Material> snakeSkin, snakeSkinTransparent;
+    int timeToVanish = 20 * pow(10, 3);
     float eggAlpha = 1.0f;
     bool paused = true;
     int picked_index = 0;
@@ -91,13 +92,13 @@ private:
     int levelScore = 0;
     float movementSpeed = 0.08f;
     std::chrono::steady_clock::time_point gameTime;
-    std::chrono::seconds gameDuration = std::chrono::seconds(1000);
+    std::chrono::seconds gameDuration = std::chrono::seconds(120);
     Ability boostAbility = Ability(15, 5);
     Ability invisAbility = Ability(10, 3);
 
     int startLinksCount = 4;
     int linksCount = startLinksCount;
-    int maxLinksCount = 6;
+    int maxLinksCount = 16;
 
     //Link mesh and model scaling
     float linkMeshSize = 1.6f;
